@@ -78,8 +78,14 @@ namespace Infrastructure.Data{{ GroupNamespace }}
                 }
             }
             
-            // Determine sort column (default to primary key if not specified)
-            var sortColumn = !string.IsNullOrWhiteSpace(sortBy) ? sortBy : "{{ PrimaryKey.NameSnake }}";
+            // Determine sort column (default to primary key if not specified) with whitelist to prevent SQL injection
+            var allowedSortColumns = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+            {
+                "{{ PrimaryKey.NameSnake }}"{% for col in Columns %}{% if not col.IsPrimaryKey %}, "{{ col.NameSnake }}"{% endif %}{% endfor %}
+            };
+            var sortColumn = !string.IsNullOrWhiteSpace(sortBy) && allowedSortColumns.Contains(sortBy!)
+                ? sortBy!
+                : "{{ PrimaryKey.NameSnake }}";
             var sortDirection = sortDescending ? "DESC" : "ASC";
             
             // Calculate offset

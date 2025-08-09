@@ -69,8 +69,8 @@ try
     // Add correlation ID middleware (must be early in pipeline)
     app.UseCorrelationId();
 
-    // Add custom request logging middleware
-    app.UseRequestLogging();
+    // Optional: use one logging approach to avoid duplicate logs
+    // app.UseRequestLogging();
 
     // Configure the HTTP request pipeline
     if (app.Environment.IsDevelopment())

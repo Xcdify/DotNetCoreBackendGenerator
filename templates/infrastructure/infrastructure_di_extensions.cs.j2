@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Dapper;
 
 namespace Infrastructure.Extensions
 {
@@ -18,6 +19,9 @@ namespace Infrastructure.Extensions
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found");
+
+            // Ensure Dapper maps snake_case columns (e.g., study_id) to PascalCase properties (StudyId)
+            DefaultTypeMap.MatchNamesWithUnderscores = true;
 
             // Register all repositories by group
 {% for group, tables in Groups.items() %}
