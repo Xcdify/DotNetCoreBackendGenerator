@@ -1,0 +1,64 @@
+using Application.DTOs.{{ TableNamePascal }};
+using FluentValidation;
+
+namespace Application.Validators.{{ TableNamePascal }}
+{
+    /// <summary>
+    /// Validator for Create{{ TableNamePascal }}Dto
+    /// </summary>
+    public class Create{{ TableNamePascal }}DtoValidator : AbstractValidator<Create{{ TableNamePascal }}Dto>
+    {
+        public Create{{ TableNamePascal }}DtoValidator()
+        {
+            {%- for col in NonPrimaryColumns %}
+            {% if col.CSharpType == 'string' and not col.IsNullable %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .NotEmpty().WithMessage("{{ col.NamePascal }} is required")
+                .MaximumLength(255).WithMessage("{{ col.NamePascal }} cannot exceed 255 characters");
+            {% elif col.CSharpType == 'string' %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .MaximumLength(255).WithMessage("{{ col.NamePascal }} cannot exceed 255 characters")
+                .When(x => !string.IsNullOrEmpty(x.{{ col.NamePascal }}));
+            {% elif not col.IsNullable and col.CSharpType in ['int', 'long', 'decimal', 'double'] %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .NotEmpty().WithMessage("{{ col.NamePascal }} is required")
+                .GreaterThan(0).WithMessage("{{ col.NamePascal }} must be greater than 0");
+            {% elif col.CSharpType == 'DateTime' and not col.IsNullable %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .NotEmpty().WithMessage("{{ col.NamePascal }} is required");
+            {% endif %}
+            {% endfor %}
+        }
+    }
+
+    /// <summary>
+    /// Validator for Update{{ TableNamePascal }}Dto
+    /// </summary>
+    public class Update{{ TableNamePascal }}DtoValidator : AbstractValidator<Update{{ TableNamePascal }}Dto>
+    {
+        public Update{{ TableNamePascal }}DtoValidator()
+        {
+            RuleFor(x => x.{{ PrimaryKey.NamePascal }})
+                .NotEmpty().WithMessage("{{ PrimaryKey.NamePascal }} is required");
+
+            {%- for col in NonPrimaryColumns %}
+            {% if col.CSharpType == 'string' and not col.IsNullable %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .NotEmpty().WithMessage("{{ col.NamePascal }} is required")
+                .MaximumLength(255).WithMessage("{{ col.NamePascal }} cannot exceed 255 characters");
+            {% elif col.CSharpType == 'string' %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .MaximumLength(255).WithMessage("{{ col.NamePascal }} cannot exceed 255 characters")
+                .When(x => !string.IsNullOrEmpty(x.{{ col.NamePascal }}));
+            {% elif not col.IsNullable and col.CSharpType in ['int', 'long', 'decimal', 'double'] %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .NotEmpty().WithMessage("{{ col.NamePascal }} is required")
+                .GreaterThan(0).WithMessage("{{ col.NamePascal }} must be greater than 0");
+            {% elif col.CSharpType == 'DateTime' and not col.IsNullable %}
+            RuleFor(x => x.{{ col.NamePascal }})
+                .NotEmpty().WithMessage("{{ col.NamePascal }} is required");
+            {% endif %}
+            {% endfor %}
+        }
+    }
+}

@@ -1,0 +1,12 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "DefaultConnection": "{% if connection_string %}{{ connection_string }}{% else %}host=localhost;port=5432;database=your_database;username=your_username;password=your_password{% endif %}"
+  }
+}

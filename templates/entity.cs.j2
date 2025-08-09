@@ -1,0 +1,9 @@
+namespace Core.Entities
+{
+    public class {{ TableNamePascal }}
+    {
+        {%- for col in Columns %}
+        public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
+        {%- endfor %}
+    }
+}

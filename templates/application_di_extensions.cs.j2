@@ -1,0 +1,36 @@
+using Application.Interfaces;
+using Application.Services;
+using FluentValidation;
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
+
+namespace Application.Extensions
+{
+    /// <summary>
+    /// Dependency injection extensions for Application layer
+    /// </summary>
+    public static class ServiceCollectionExtensions
+    {
+        /// <summary>
+        /// Add Application layer services to the dependency injection container
+        /// </summary>
+        /// <param name="services">The service collection</param>
+        /// <returns>The service collection for chaining</returns>
+        public static IServiceCollection AddApplication(this IServiceCollection services)
+        {
+            // Register all application services
+            {% for table in Tables -%}
+            services.AddScoped<I{{ table.TableNamePascal }}Service, {{ table.TableNamePascal }}Service>();
+            {% endfor %}
+
+            // Register FluentValidation validators
+            services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+
+            // Add other application services here
+            // services.AddScoped<IEmailService, EmailService>();
+            // services.AddScoped<INotificationService, NotificationService>();
+
+            return services;
+        }
+    }
+}

@@ -1,0 +1,38 @@
+using Core.Interfaces;
+using Infrastructure.Data;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Infrastructure.Extensions
+{
+    /// <summary>
+    /// Dependency injection extensions for Infrastructure layer
+    /// </summary>
+    public static class ServiceCollectionExtensions
+    {
+        /// <summary>
+        /// Add Infrastructure layer services to the dependency injection container
+        /// </summary>
+        /// <param name="services">The service collection</param>
+        /// <param name="configuration">The application configuration</param>
+        /// <returns>The service collection for chaining</returns>
+        public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found");
+
+            // Register all repositories
+            {% for table in Tables -%}
+            services.AddScoped<I{{ table.TableNamePascal }}Repository>(sp => 
+                new {{ table.TableNamePascal }}Repository(connectionString));
+            {% endfor %}
+
+            // Add other infrastructure services here
+            // services.AddScoped<IEmailProvider, SmtpEmailProvider>();
+            // services.AddScoped<IFileStorage, LocalFileStorage>();
+            // services.AddScoped<ICacheService, RedisCacheService>();
+
+            return services;
+        }
+    }
+}

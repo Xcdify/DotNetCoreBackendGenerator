@@ -1,0 +1,155 @@
+using Application.Interfaces;
+using Core.Entities;
+using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
+
+namespace WebApi.Controllers
+{
+    /// <summary>
+    /// {{ TableNamePascal }} management endpoints
+    /// </summary>
+    [ApiController]
+    [Route("api/[controller]")]
+    [Produces("application/json")]
+    public class {{ TableNamePascal }}Controller : ControllerBase
+    {
+        private readonly I{{ TableNamePascal }}Service _service;
+
+        /// <summary>
+        /// Initializes a new instance of the {{ TableNamePascal }}Controller
+        /// </summary>
+        public {{ TableNamePascal }}Controller(I{{ TableNamePascal }}Service service)
+        {
+            _service = service ?? throw new ArgumentNullException(nameof(service));
+        }
+
+        /// <summary>
+        /// Get {{ TableNamePascal }} by ID
+        /// </summary>
+        /// <param name="id">The {{ TableNamePascal }} ID</param>
+        /// <returns>The {{ TableNamePascal }} entity</returns>
+        /// <response code="200">Returns the {{ TableNamePascal }} entity</response>
+        /// <response code="404">{{ TableNamePascal }} not found</response>
+        [HttpGet("{id}")]
+        [ProducesResponseType(typeof({{ TableNamePascal }}), 200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetById({{ PrimaryKey.CSharpType }} id)
+        {
+            try
+            {
+                var entity = await _service.GetByIdAsync(id);
+                if (entity == null) 
+                    return NotFound($"{{ TableNamePascal }} with ID {id} not found");
+                return Ok(entity);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Get all {{ TableNamePascal }} entities
+        /// </summary>
+        /// <returns>List of {{ TableNamePascal }} entities</returns>
+        /// <response code="200">Returns the list of {{ TableNamePascal }} entities</response>
+        [HttpGet]
+        [ProducesResponseType(typeof(IEnumerable<{{ TableNamePascal }}>), 200)]
+        public async Task<IActionResult> GetAll()
+        {
+            var entities = await _service.GetAllAsync();
+            return Ok(entities);
+        }
+
+        /// <summary>
+        /// Create a new {{ TableNamePascal }}
+        /// </summary>
+        /// <param name="entity">The {{ TableNamePascal }} to create</param>
+        /// <returns>The created {{ TableNamePascal }}</returns>
+        /// <response code="201">{{ TableNamePascal }} created successfully</response>
+        /// <response code="400">Invalid input</response>
+        [HttpPost]
+        [ProducesResponseType(typeof({{ TableNamePascal }}), 201)]
+        [ProducesResponseType(400)]
+        public async Task<IActionResult> Create([FromBody] {{ TableNamePascal }} entity)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var created = await _service.CreateAsync(entity);
+                return CreatedAtAction(nameof(GetById), new { id = created.{{ PrimaryKey.NamePascal }} }, created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Update an existing {{ TableNamePascal }}
+        /// </summary>
+        /// <param name="id">The {{ TableNamePascal }} ID</param>
+        /// <param name="entity">The updated {{ TableNamePascal }} data</param>
+        /// <returns>No content</returns>
+        /// <response code="204">{{ TableNamePascal }} updated successfully</response>
+        /// <response code="400">Invalid input</response>
+        /// <response code="404">{{ TableNamePascal }} not found</response>
+        [HttpPut("{id}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> Update({{ PrimaryKey.CSharpType }} id, [FromBody] {{ TableNamePascal }} entity)
+        {
+            if (id != entity.{{ PrimaryKey.NamePascal }})
+                return BadRequest("ID in URL doesn't match ID in body");
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                await _service.UpdateAsync(entity);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Delete a {{ TableNamePascal }}
+        /// </summary>
+        /// <param name="id">The {{ TableNamePascal }} ID to delete</param>
+        /// <returns>No content</returns>
+        /// <response code="204">{{ TableNamePascal }} deleted successfully</response>
+        /// <response code="404">{{ TableNamePascal }} not found</response>
+        [HttpDelete("{id}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> Delete({{ PrimaryKey.CSharpType }} id)
+        {
+            try
+            {
+                await _service.DeleteAsync(id);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+    }
+}

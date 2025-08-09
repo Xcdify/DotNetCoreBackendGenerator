@@ -1,0 +1,51 @@
+using Application.Extensions;
+using Infrastructure.Extensions;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add layer services using extension methods
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();
+
+// Add framework services
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Generated API", 
+        Version = "v1",
+        Description = "Auto-generated Clean Architecture API from PostgreSQL schema"
+    });
+    
+    // Include XML comments if available
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Generated API V1");
+        c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
+    });
+}
+
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();

@@ -1,0 +1,62 @@
+using Core.Entities;
+using Core.Interfaces;
+using Dapper;
+using Npgsql;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Infrastructure.Data
+{
+    public class {{ TableNamePascal }}Repository : I{{ TableNamePascal }}Repository
+    {
+        private readonly string _connectionString;
+
+        public {{ TableNamePascal }}Repository(string connectionString)
+        {
+            _connectionString = connectionString;
+        }
+
+        public async Task<{{ TableNamePascal }}> GetByIdAsync({{ PrimaryKey.CSharpType }} id)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            return await connection.QueryFirstOrDefaultAsync<{{ TableNamePascal }}>(
+                $"SELECT * FROM {{ TableNameSnake }} WHERE {{ PrimaryKey.NameSnake }} = @id", 
+                new { id });
+        }
+
+        public async Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync()
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            return await connection.QueryAsync<{{ TableNamePascal }}>(
+                $"SELECT * FROM {{ TableNameSnake }}");
+        }
+
+        public async Task AddAsync({{ TableNamePascal }} entity)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            var sql = @"INSERT INTO {{ TableNameSnake }} 
+                ({% for col in NonPrimaryColumns %}{{ col.NameSnake }}{% if not loop.last %}, {% endif %}{% endfor %})
+                VALUES
+                ({% for col in NonPrimaryColumns %}@{{ col.NamePascal }}{% if not loop.last %}, {% endif %}{% endfor %})";
+            await connection.ExecuteAsync(sql, entity);
+        }
+
+        public async Task UpdateAsync({{ TableNamePascal }} entity)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            var sql = @"UPDATE {{ TableNameSnake }} SET
+                {% for col in NonPrimaryColumns %}{{ col.NameSnake }} = @{{ col.NamePascal }}{% if not loop.last %},
+                {% endif %}{% endfor %}
+                WHERE {{ PrimaryKey.NameSnake }} = @{{ PrimaryKey.NamePascal }}";
+            await connection.ExecuteAsync(sql, entity);
+        }
+
+        public async Task DeleteAsync({{ PrimaryKey.CSharpType }} id)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.ExecuteAsync(
+                $"DELETE FROM {{ TableNameSnake }} WHERE {{ PrimaryKey.NameSnake }} = @id", 
+                new { id });
+        }
+    }
+}

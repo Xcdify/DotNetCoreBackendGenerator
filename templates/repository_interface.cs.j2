@@ -1,0 +1,15 @@
+using Core.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Core.Interfaces
+{
+    public interface I{{ TableNamePascal }}Repository
+    {
+        Task<{{ TableNamePascal }}> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
+        Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync();
+        Task AddAsync({{ TableNamePascal }} entity);
+        Task UpdateAsync({{ TableNamePascal }} entity);
+        Task DeleteAsync({{ PrimaryKey.CSharpType }} id);
+    }
+}

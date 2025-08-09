@@ -1,0 +1,42 @@
+using Core.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Application.Interfaces
+{
+    /// <summary>
+    /// Service interface for {{ TableNamePascal }} operations
+    /// </summary>
+    public interface I{{ TableNamePascal }}Service
+    {
+        /// <summary>
+        /// Get {{ TableNamePascal }} by ID
+        /// </summary>
+        Task<{{ TableNamePascal }}?> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
+        
+        /// <summary>
+        /// Get all {{ TableNamePascal }} entities
+        /// </summary>
+        Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync();
+        
+        /// <summary>
+        /// Create a new {{ TableNamePascal }}
+        /// </summary>
+        Task<{{ TableNamePascal }}> CreateAsync({{ TableNamePascal }} entity);
+        
+        /// <summary>
+        /// Update an existing {{ TableNamePascal }}
+        /// </summary>
+        Task UpdateAsync({{ TableNamePascal }} entity);
+        
+        /// <summary>
+        /// Delete a {{ TableNamePascal }} by ID
+        /// </summary>
+        Task DeleteAsync({{ PrimaryKey.CSharpType }} id);
+        
+        /// <summary>
+        /// Check if {{ TableNamePascal }} exists
+        /// </summary>
+        Task<bool> ExistsAsync({{ PrimaryKey.CSharpType }} id);
+    }
+}
