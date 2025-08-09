@@ -1,4 +1,5 @@
 using Core.Entities{{ GroupNamespace }};
+using Core.Common;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -12,31 +13,31 @@ namespace Application.Interfaces{{ GroupNamespace }}
         /// <summary>
         /// Get {{ TableNamePascal }} by ID
         /// </summary>
-        Task<{{ TableNamePascal }}?> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
+        Task<Result<{{ TableNamePascal }}>> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
         
         /// <summary>
         /// Get all {{ TableNamePascal }} entities
         /// </summary>
-        Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync();
+        Task<Result<IEnumerable<{{ TableNamePascal }}>>> GetAllAsync();
         
         /// <summary>
         /// Create a new {{ TableNamePascal }}
         /// </summary>
-        Task<{{ TableNamePascal }}> CreateAsync({{ TableNamePascal }} entity);
+        Task<Result<{{ TableNamePascal }}>> CreateAsync({{ TableNamePascal }} entity);
         
         /// <summary>
         /// Update an existing {{ TableNamePascal }}
         /// </summary>
-        Task UpdateAsync({{ TableNamePascal }} entity);
+        Task<Result> UpdateAsync({{ TableNamePascal }} entity);
         
         /// <summary>
         /// Delete a {{ TableNamePascal }} by ID
         /// </summary>
-        Task DeleteAsync({{ PrimaryKey.CSharpType }} id);
+        Task<Result> DeleteAsync({{ PrimaryKey.CSharpType }} id);
         
         /// <summary>
         /// Check if {{ TableNamePascal }} exists
         /// </summary>
-        Task<bool> ExistsAsync({{ PrimaryKey.CSharpType }} id);
+        Task<Result<bool>> ExistsAsync({{ PrimaryKey.CSharpType }} id);
     }
 }

@@ -1,5 +1,6 @@
 using Application.Interfaces{{ GroupNamespace }};
 using Core.Entities{{ GroupNamespace }};
+using Core.Common;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
@@ -36,17 +37,19 @@ namespace WebApi.Controllers{{ GroupNamespace }}
         [ProducesResponseType(404)]
         public async Task<IActionResult> GetById({{ PrimaryKey.CSharpType }} id)
         {
-            try
+            var result = await _service.GetByIdAsync(id);
+            
+            if (result.IsFailure)
             {
-                var entity = await _service.GetByIdAsync(id);
-                if (entity == null) 
-                    return NotFound($"{{ TableNamePascal }} with ID {id} not found");
-                return Ok(entity);
+                return result.Error!.Type switch
+                {
+                    ErrorType.Validation => BadRequest(result.Error.Message),
+                    ErrorType.NotFound => NotFound(result.Error.Message),
+                    _ => BadRequest(result.Error.Message)
+                };
             }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            
+            return Ok(result.Value);
         }
 
         /// <summary>
@@ -58,8 +61,18 @@ namespace WebApi.Controllers{{ GroupNamespace }}
         [ProducesResponseType(typeof(IEnumerable<{{ TableNamePascal }}>), 200)]
         public async Task<IActionResult> GetAll()
         {
-            var entities = await _service.GetAllAsync();
-            return Ok(entities);
+            var result = await _service.GetAllAsync();
+            
+            if (result.IsFailure)
+            {
+                return result.Error!.Type switch
+                {
+                    ErrorType.Internal => StatusCode(500, result.Error.Message),
+                    _ => BadRequest(result.Error.Message)
+                };
+            }
+            
+            return Ok(result.Value);
         }
 
         /// <summary>
@@ -77,15 +90,20 @@ namespace WebApi.Controllers{{ GroupNamespace }}
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            try
+            var result = await _service.CreateAsync(entity);
+            
+            if (result.IsFailure)
             {
-                var created = await _service.CreateAsync(entity);
-                return CreatedAtAction(nameof(GetById), new { id = created.{{ PrimaryKey.NamePascal }} }, created);
+                return result.Error!.Type switch
+                {
+                    ErrorType.Validation => BadRequest(result.Error.Message),
+                    ErrorType.Conflict => Conflict(result.Error.Message),
+                    ErrorType.Internal => StatusCode(500, result.Error.Message),
+                    _ => BadRequest(result.Error.Message)
+                };
             }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+
+            return CreatedAtAction(nameof(GetById), new { id = result.Value!.{{ PrimaryKey.NamePascal }} }, result.Value);
         }
 
         /// <summary>
@@ -109,19 +127,21 @@ namespace WebApi.Controllers{{ GroupNamespace }}
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            try
+            var result = await _service.UpdateAsync(entity);
+            
+            if (result.IsFailure)
             {
-                await _service.UpdateAsync(entity);
-                return NoContent();
+                return result.Error!.Type switch
+                {
+                    ErrorType.Validation => BadRequest(result.Error.Message),
+                    ErrorType.NotFound => NotFound(result.Error.Message),
+                    ErrorType.Conflict => Conflict(result.Error.Message),
+                    ErrorType.Internal => StatusCode(500, result.Error.Message),
+                    _ => BadRequest(result.Error.Message)
+                };
             }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return NotFound(ex.Message);
-            }
+
+            return NoContent();
         }
 
         /// <summary>
@@ -137,19 +157,21 @@ namespace WebApi.Controllers{{ GroupNamespace }}
         [ProducesResponseType(404)]
         public async Task<IActionResult> Delete({{ PrimaryKey.CSharpType }} id)
         {
-            try
+            var result = await _service.DeleteAsync(id);
+            
+            if (result.IsFailure)
             {
-                await _service.DeleteAsync(id);
-                return NoContent();
+                return result.Error!.Type switch
+                {
+                    ErrorType.Validation => BadRequest(result.Error.Message),
+                    ErrorType.NotFound => NotFound(result.Error.Message),
+                    ErrorType.Conflict => Conflict(result.Error.Message),
+                    ErrorType.Internal => StatusCode(500, result.Error.Message),
+                    _ => BadRequest(result.Error.Message)
+                };
             }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return NotFound(ex.Message);
-            }
+
+            return NoContent();
         }
     }
 }

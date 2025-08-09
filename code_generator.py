@@ -64,6 +64,10 @@ class DotNetCodeGenerator:
         if progress_callback:
             progress_callback(80, "Generating Program.cs and configuration files...")
         
+        # Generate common Result and Error classes
+        files["src/Core/Common/Result.cs"] = self._generate_result_class()
+        files["src/Core/Common/Error.cs"] = self._generate_error_class()
+        
         files["src/WebApi/Program.cs"] = self._generate_program(schema)
         files["src/WebApi/appsettings.json"] = self._generate_appsettings(connection_string)
         files["src/WebApi/appsettings.Development.json"] = self._generate_appsettings_dev()
@@ -414,3 +418,11 @@ Run tests with: `dotnet test`
 
 [.NET Core App Generator](https://github.com/yourusername/netcore-generator)
 """
+
+    def _generate_result_class(self) -> str:
+        template = self.env.get_template('result.cs.j2')
+        return template.render()
+    
+    def _generate_error_class(self) -> str:
+        template = self.env.get_template('error.cs.j2')
+        return template.render()

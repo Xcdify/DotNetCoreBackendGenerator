@@ -1,6 +1,7 @@
 using Application.Interfaces{{ GroupNamespace }};
 using Core.Entities{{ GroupNamespace }};
 using Core.Interfaces{{ GroupNamespace }};
+using Core.Common;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -19,98 +20,146 @@ namespace Application.Services{{ GroupNamespace }}
         }
 
         /// <inheritdoc />
-        public async Task<{{ TableNamePascal }}?> GetByIdAsync({{ PrimaryKey.CSharpType }} id)
+        public async Task<Result<{{ TableNamePascal }}>> GetByIdAsync({{ PrimaryKey.CSharpType }} id)
         {
             if (id == default({{ PrimaryKey.CSharpType }}))
-                throw new ArgumentException("ID cannot be default value", nameof(id));
-
-            return await _repository.GetByIdAsync(id);
-        }
-
-        /// <inheritdoc />
-        public async Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync()
-        {
-            return await _repository.GetAllAsync();
-        }
-
-        /// <inheritdoc />
-        public async Task<{{ TableNamePascal }}> CreateAsync({{ TableNamePascal }} entity)
-        {
-            if (entity == null)
-                throw new ArgumentNullException(nameof(entity));
-
-            // Add business validation here
-            ValidateEntity(entity);
-
-            await _repository.AddAsync(entity);
-            return entity;
-        }
-
-        /// <inheritdoc />
-        public async Task UpdateAsync({{ TableNamePascal }} entity)
-        {
-            if (entity == null)
-                throw new ArgumentNullException(nameof(entity));
-
-            if (entity.{{ PrimaryKey.NamePascal }} == default({{ PrimaryKey.CSharpType }}))
-                throw new ArgumentException("Entity ID cannot be default value", nameof(entity));
-
-            // Check if entity exists
-            var exists = await ExistsAsync(entity.{{ PrimaryKey.NamePascal }});
-            if (!exists)
-                throw new InvalidOperationException($"{{ TableNamePascal }} with ID {entity.{{ PrimaryKey.NamePascal }}} not found");
-
-            // Add business validation here
-            ValidateEntity(entity);
-
-            await _repository.UpdateAsync(entity);
-        }
-
-        /// <inheritdoc />
-        public async Task DeleteAsync({{ PrimaryKey.CSharpType }} id)
-        {
-            if (id == default({{ PrimaryKey.CSharpType }}))
-                throw new ArgumentException("ID cannot be default value", nameof(id));
-
-            // Check if entity exists
-            var exists = await ExistsAsync(id);
-            if (!exists)
-                throw new InvalidOperationException($"{{ TableNamePascal }} with ID {id} not found");
-
-            // Add business rules for deletion here (e.g., check for dependencies)
-
-            await _repository.DeleteAsync(id);
-        }
-
-        /// <inheritdoc />
-        public async Task<bool> ExistsAsync({{ PrimaryKey.CSharpType }} id)
-        {
-            if (id == default({{ PrimaryKey.CSharpType }}))
-                return false;
+                return Error.Validation("ID cannot be default value");
 
             var entity = await _repository.GetByIdAsync(id);
-            return entity != null;
+            if (entity == null)
+                return Error.NotFound($"{{ TableNamePascal }} with ID {id} not found");
+
+            return Result<{{ TableNamePascal }}>.Success(entity);
+        }
+
+        /// <inheritdoc />
+        public async Task<Result<IEnumerable<{{ TableNamePascal }}>>> GetAllAsync()
+        {
+            try
+            {
+                var entities = await _repository.GetAllAsync();
+                return Result<IEnumerable<{{ TableNamePascal }}>>.Success(entities);
+            }
+            catch (Exception ex)
+            {
+                return Error.Internal($"Failed to retrieve {{ TableNamePascal }} entities: {ex.Message}");
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<Result<{{ TableNamePascal }}>> CreateAsync({{ TableNamePascal }} entity)
+        {
+            if (entity == null)
+                return Error.Validation("Entity cannot be null");
+
+            var validationResult = ValidateEntity(entity);
+            if (validationResult.IsFailure)
+                return validationResult.Error!;
+
+            try
+            {
+                await _repository.AddAsync(entity);
+                return Result<{{ TableNamePascal }}>.Success(entity);
+            }
+            catch (Exception ex)
+            {
+                return Error.Internal($"Failed to create {{ TableNamePascal }}: {ex.Message}");
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<Result> UpdateAsync({{ TableNamePascal }} entity)
+        {
+            if (entity == null)
+                return Error.Validation("Entity cannot be null");
+
+            if (entity.{{ PrimaryKey.NamePascal }} == default({{ PrimaryKey.CSharpType }}))
+                return Error.Validation("Entity ID cannot be default value");
+
+            var existsResult = await ExistsAsync(entity.{{ PrimaryKey.NamePascal }});
+            if (existsResult.IsFailure)
+                return existsResult.Error!;
+
+            if (!existsResult.Value)
+                return Error.NotFound($"{{ TableNamePascal }} with ID {entity.{{ PrimaryKey.NamePascal }}} not found");
+
+            var validationResult = ValidateEntity(entity);
+            if (validationResult.IsFailure)
+                return validationResult.Error!;
+
+            try
+            {
+                await _repository.UpdateAsync(entity);
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Error.Internal($"Failed to update {{ TableNamePascal }}: {ex.Message}");
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<Result> DeleteAsync({{ PrimaryKey.CSharpType }} id)
+        {
+            if (id == default({{ PrimaryKey.CSharpType }}))
+                return Error.Validation("ID cannot be default value");
+
+            var existsResult = await ExistsAsync(id);
+            if (existsResult.IsFailure)
+                return existsResult.Error!;
+
+            if (!existsResult.Value)
+                return Error.NotFound($"{{ TableNamePascal }} with ID {id} not found");
+
+            try
+            {
+                await _repository.DeleteAsync(id);
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Error.Internal($"Failed to delete {{ TableNamePascal }}: {ex.Message}");
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<Result<bool>> ExistsAsync({{ PrimaryKey.CSharpType }} id)
+        {
+            if (id == default({{ PrimaryKey.CSharpType }}))
+                return Result<bool>.Success(false);
+
+            try
+            {
+                var entity = await _repository.GetByIdAsync(id);
+                return Result<bool>.Success(entity != null);
+            }
+            catch (Exception ex)
+            {
+                return Error.Internal($"Failed to check if {{ TableNamePascal }} exists: {ex.Message}");
+            }
         }
 
         /// <summary>
         /// Validates the entity according to business rules
         /// </summary>
         /// <param name="entity">Entity to validate</param>
-        /// <exception cref="ArgumentException">Thrown when validation fails</exception>
-        private void ValidateEntity({{ TableNamePascal }} entity)
+        /// <returns>Result indicating if validation passed or failed</returns>
+        private Result ValidateEntity({{ TableNamePascal }} entity)
         {
             // Add your business validation rules here
             // Examples:
 {% for col in NonPrimaryColumns -%}
 {% if col.CSharpType == 'string' and not col.IsNullable -%}
             // if (string.IsNullOrWhiteSpace(entity.{{ col.NamePascal }}))
-            //     throw new ArgumentException("{{ col.NamePascal }} is required", nameof(entity));
+            //     return Error.Validation("{{ col.NamePascal }} is required");
 {% endif -%}
 {% if col.CSharpType == 'string' -%}
             // if (!string.IsNullOrEmpty(entity.{{ col.NamePascal }}) && entity.{{ col.NamePascal }}.Length > 255)
-            //     throw new ArgumentException("{{ col.NamePascal }} cannot exceed 255 characters", nameof(entity));
+            //     return Error.Validation("{{ col.NamePascal }} cannot exceed 255 characters");
 {% endif -%}
 {% endfor -%}
+
+            return Result.Success();
         }
     }
 }
