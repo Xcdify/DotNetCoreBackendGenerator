@@ -2,7 +2,11 @@ using Application.Interfaces{{ GroupNamespace }};
 using Core.Entities{{ GroupNamespace }};
 using Core.Common;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using WebApi.DTOs{{ GroupNamespace }};
+using WebApi.DTOs.Common;
 
 namespace WebApi.Controllers{{ GroupNamespace }}
 {
@@ -73,6 +77,44 @@ namespace WebApi.Controllers{{ GroupNamespace }}
             }
             
             return Ok(result.Value);
+        }
+
+        /// <summary>
+        /// Get paginated {{ TableNamePascal }} entities with filtering and sorting
+        /// </summary>
+        /// <param name="request">Pagination and filter parameters</param>
+        /// <returns>Paginated list of {{ TableNamePascal }} entities</returns>
+        /// <response code="200">Returns the paginated list of {{ TableNamePascal }} entities</response>
+        [HttpGet("paged")]
+        [ProducesResponseType(typeof(PagedResponse<{{ TableNamePascal }}>), 200)]
+        public async Task<IActionResult> GetPaged([FromQuery] {{ TableNamePascal }}FilterRequest request)
+        {
+            var result = await _service.GetPagedAsync(
+                request.PageNumber,
+                request.PageSize,
+                request.SearchTerm,
+                request.SortBy,
+                request.SortDescending,
+                request.GetFilters());
+            
+            if (result.IsFailure)
+            {
+                return result.Error!.Type switch
+                {
+                    ErrorType.Validation => BadRequest(result.Error.Message),
+                    ErrorType.Internal => StatusCode(500, result.Error.Message),
+                    _ => BadRequest(result.Error.Message)
+                };
+            }
+            
+            var (items, totalCount) = result.Value;
+            var response = new PagedResponse<{{ TableNamePascal }}>(
+                items,
+                totalCount,
+                request.PageNumber,
+                request.PageSize);
+            
+            return Ok(response);
         }
 
         /// <summary>

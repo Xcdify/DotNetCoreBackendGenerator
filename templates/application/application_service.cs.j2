@@ -2,6 +2,7 @@ using Application.Interfaces{{ GroupNamespace }};
 using Core.Entities{{ GroupNamespace }};
 using Core.Interfaces{{ GroupNamespace }};
 using Core.Common;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -43,6 +44,39 @@ namespace Application.Services{{ GroupNamespace }}
             catch (Exception ex)
             {
                 return Error.Internal($"Failed to retrieve {{ TableNamePascal }} entities: {ex.Message}");
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<Result<(IEnumerable<{{ TableNamePascal }}> Items, int TotalCount)>> GetPagedAsync(
+            int pageNumber, 
+            int pageSize, 
+            string searchTerm = null,
+            string sortBy = null,
+            bool sortDescending = false,
+            Dictionary<string, object> filters = null)
+        {
+            if (pageNumber < 1)
+                return Error.Validation("Page number must be greater than 0");
+            
+            if (pageSize < 1 || pageSize > 100)
+                return Error.Validation("Page size must be between 1 and 100");
+
+            try
+            {
+                var result = await _repository.GetPagedAsync(
+                    pageNumber, 
+                    pageSize, 
+                    searchTerm, 
+                    sortBy, 
+                    sortDescending, 
+                    filters);
+                    
+                return Result<(IEnumerable<{{ TableNamePascal }}> Items, int TotalCount)>.Success(result);
+            }
+            catch (Exception ex)
+            {
+                return Error.Internal($"Failed to retrieve paginated {{ TableNamePascal }} entities: {ex.Message}");
             }
         }
 

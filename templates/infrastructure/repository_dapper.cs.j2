@@ -3,6 +3,8 @@ using Core.Interfaces{{ GroupNamespace }};
 using Dapper;
 using Npgsql;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Infrastructure.Data{{ GroupNamespace }}
@@ -29,6 +31,81 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             using var connection = new NpgsqlConnection(_connectionString);
             return await connection.QueryAsync<{{ TableNamePascal }}>(
                 $"SELECT * FROM {{ TableNameSnake }}");
+        }
+
+        public async Task<(IEnumerable<{{ TableNamePascal }}> Items, int TotalCount)> GetPagedAsync(
+            int pageNumber, 
+            int pageSize, 
+            string searchTerm = null,
+            string sortBy = null,
+            bool sortDescending = false,
+            Dictionary<string, object> filters = null)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            var parameters = new DynamicParameters();
+            var whereClause = new StringBuilder(" WHERE 1=1");
+            
+            // Add search term filter (searches across text columns)
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                whereClause.Append(" AND (");
+                var searchClauses = new List<string>();
+                {% for col in Columns %}
+                {% if col.DataType in ['text', 'varchar', 'character varying', 'char', 'character'] %}
+                searchClauses.Add("{{ col.NameSnake }}::text ILIKE @searchTerm");
+                {% endif %}
+                {% endfor %}
+                
+                if (searchClauses.Any())
+                {
+                    whereClause.Append(string.Join(" OR ", searchClauses));
+                    parameters.Add("searchTerm", $"%{searchTerm}%");
+                }
+                whereClause.Append(")");
+            }
+            
+            // Add dynamic filters
+            if (filters != null && filters.Any())
+            {
+                foreach (var filter in filters)
+                {
+                    if (filter.Value != null)
+                    {
+                        whereClause.Append($" AND {filter.Key} = @{filter.Key}");
+                        parameters.Add(filter.Key, filter.Value);
+                    }
+                }
+            }
+            
+            // Determine sort column (default to primary key if not specified)
+            var sortColumn = !string.IsNullOrWhiteSpace(sortBy) ? sortBy : "{{ PrimaryKey.NameSnake }}";
+            var sortDirection = sortDescending ? "DESC" : "ASC";
+            
+            // Calculate offset
+            var offset = (pageNumber - 1) * pageSize;
+            parameters.Add("offset", offset);
+            parameters.Add("limit", pageSize);
+            
+            // Build queries
+            var dataQuery = $@"
+                SELECT * FROM {{ TableNameSnake }}
+                {whereClause}
+                ORDER BY {sortColumn} {sortDirection}
+                LIMIT @limit OFFSET @offset";
+            
+            var countQuery = $@"
+                SELECT COUNT(*) FROM {{ TableNameSnake }}
+                {whereClause}";
+            
+            // Execute both queries
+            using var multi = await connection.QueryMultipleAsync(
+                dataQuery + ";" + countQuery, 
+                parameters);
+            
+            var items = await multi.ReadAsync<{{ TableNamePascal }}>();
+            var totalCount = await multi.ReadSingleAsync<int>();
+            
+            return (items, totalCount);
         }
 
         public async Task AddAsync({{ TableNamePascal }} entity)

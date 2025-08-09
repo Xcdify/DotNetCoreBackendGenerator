@@ -8,6 +8,13 @@ namespace Core.Interfaces{{ GroupNamespace }}
     {
         Task<{{ TableNamePascal }}> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
         Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync();
+        Task<(IEnumerable<{{ TableNamePascal }}> Items, int TotalCount)> GetPagedAsync(
+            int pageNumber, 
+            int pageSize, 
+            string searchTerm = null,
+            string sortBy = null,
+            bool sortDescending = false,
+            Dictionary<string, object> filters = null);
         Task AddAsync({{ TableNamePascal }} entity);
         Task UpdateAsync({{ TableNamePascal }} entity);
         Task DeleteAsync({{ PrimaryKey.CSharpType }} id);

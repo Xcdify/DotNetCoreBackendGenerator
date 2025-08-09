@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+
+namespace WebApi.DTOs{{ GroupNamespace }}
+{
+    public class {{ TableNamePascal }}FilterRequest
+    {
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public string SearchTerm { get; set; }
+        public string SortBy { get; set; }
+        public bool SortDescending { get; set; } = false;
+        
+        {% for col in NonPrimaryColumns %}
+        {% if col.CSharpType in ['string', 'int', 'long', 'decimal', 'double', 'float', 'bool', 'DateTime', 'Guid'] %}
+        public {{ col.CSharpType }}{% if col.IsNullable or col.CSharpType != 'string' %}?{% endif %} {{ col.NamePascal }} { get; set; }
+        {% endif %}
+        {% endfor %}
+        
+        public Dictionary<string, object> GetFilters()
+        {
+            var filters = new Dictionary<string, object>();
+            
+            {% for col in NonPrimaryColumns %}
+            {% if col.CSharpType in ['string', 'int', 'long', 'decimal', 'double', 'float', 'bool', 'DateTime', 'Guid'] %}
+            if ({{ col.NamePascal }} != null{% if col.CSharpType == 'string' %} && !string.IsNullOrWhiteSpace({{ col.NamePascal }}){% endif %})
+                filters.Add("{{ col.NameSnake }}", {{ col.NamePascal }});
+            {% endif %}
+            {% endfor %}
+            
+            return filters;
+        }
+    }
+}

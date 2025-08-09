@@ -60,6 +60,9 @@ class DotNetCodeGenerator:
             files[f"src/Application/DTOs/{group}/{table_data['TableNamePascal']}/Create{table_data['TableNamePascal']}Dto.cs"] = self.generate_create_dto(table, group)
             files[f"src/Application/DTOs/{group}/{table_data['TableNamePascal']}/Update{table_data['TableNamePascal']}Dto.cs"] = self.generate_update_dto(table, group)
             files[f"src/Application/Validators/{group}/{table_data['TableNamePascal']}/{table_data['TableNamePascal']}DtoValidator.cs"] = self.generate_dto_validator(table, group)
+            
+            # Generate pagination DTOs
+            files[f"src/WebApi/DTOs/{group}/{table_data['TableNamePascal']}FilterRequest.cs"] = self.generate_pagination_dto(table, group)
         
         if progress_callback:
             progress_callback(80, "Generating Program.cs and configuration files...")
@@ -68,6 +71,9 @@ class DotNetCodeGenerator:
         files["src/Core/Common/Result.cs"] = self._generate_result_class()
         files["src/Core/Common/Error.cs"] = self._generate_error_class()
         files["src/Core/Common/Examples/SensitiveDataExamples.cs"] = self._generate_sensitive_data_examples()
+        
+        # Generate common pagination response class
+        files["src/WebApi/DTOs/Common/PagedResponse.cs"] = self._generate_paged_response_class()
         
         # Generate Serilog configuration and middleware
         files["src/WebApi/Configuration/SerilogConfiguration.cs"] = self._generate_serilog_configuration(solution_name)
@@ -204,6 +210,16 @@ class DotNetCodeGenerator:
     def generate_dto_validator(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('dtos/dto_validator.cs.j2')
         data = self._prepare_table_data(table, group)
+        return template.render(**data)
+    
+    def generate_pagination_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
+        template = self.env.get_template('dtos/pagination_request.cs.j2')
+        data = self._prepare_table_data(table, group)
+        # Add DataType info for columns to enable smart filtering
+        for col in data['Columns']:
+            col['DataType'] = next((c['data_type'] for c in table['columns'] if c['name'] == col['Name']), 'text')
+        for col in data['NonPrimaryColumns']:
+            col['DataType'] = next((c['data_type'] for c in table['columns'] if c['name'] == col['Name']), 'text')
         return template.render(**data)
     
     def _generate_program(self, schema: Dict[str, Any], solution_name: str = "GeneratedApp") -> str:
@@ -448,3 +464,29 @@ Run tests with: `dotnet test`
     def _generate_sensitive_data_examples(self) -> str:
         template = self.env.get_template('configuration/sensitive_data_examples.cs.j2')
         return template.render()
+    
+    def _generate_paged_response_class(self) -> str:
+        return """using System.Collections.Generic;
+
+namespace WebApi.DTOs.Common
+{
+    public class PagedResponse<T>
+    {
+        public IEnumerable<T> Data { get; set; }
+        public int CurrentPage { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
+        public bool HasPrevious => CurrentPage > 1;
+        public bool HasNext => CurrentPage < TotalPages;
+        
+        public PagedResponse(IEnumerable<T> data, int count, int pageNumber, int pageSize)
+        {
+            Data = data;
+            TotalCount = count;
+            CurrentPage = pageNumber;
+            PageSize = pageSize;
+            TotalPages = (int)System.Math.Ceiling(count / (double)pageSize);
+        }
+    }
+}"""
