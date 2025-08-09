@@ -2,50 +2,97 @@ using Application.Extensions;
 using Infrastructure.Extensions;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using WebApi.Configuration;
+using WebApi.Middleware;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configure Serilog early for startup logging
+SerilogConfiguration.CreateBootstrapLogger();
 
-// Add layer services using extension methods
-builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddApplication();
-
-// Add framework services
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+try
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "Generated API", 
-        Version = "v1",
-        Description = "Auto-generated Clean Architecture API from PostgreSQL schema"
-    });
-    
-    // Include XML comments if available
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
+    Log.Information("Starting web application");
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Configure Serilog
+    SerilogConfiguration.ConfigureSerilog(builder);
+
+    // Add layer services using extension methods
+    builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddApplication();
+
+    // Add framework services
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
     {
-        c.IncludeXmlComments(xmlPath);
+        c.SwaggerDoc("v1", new OpenApiInfo 
+        { 
+            Title = "Generated API", 
+            Version = "v1",
+            Description = "Auto-generated Clean Architecture API from PostgreSQL schema"
+        });
+        
+        // Include XML comments if available
+        var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
+    });
+
+    var app = builder.Build();
+
+    // Configure Serilog request logging
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
+        options.GetLevel = (httpContext, elapsed, ex) => ex != null 
+            ? Serilog.Events.LogEventLevel.Error 
+            : httpContext.Response.StatusCode > 499 
+                ? Serilog.Events.LogEventLevel.Error
+                : Serilog.Events.LogEventLevel.Information;
+        options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+        {
+            diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+            diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+            diagnosticContext.Set("RemoteIpAddress", httpContext.Connection.RemoteIpAddress);
+        };
+    });
+
+    // Add correlation ID middleware (must be early in pipeline)
+    app.UseCorrelationId();
+
+    // Add custom request logging middleware
+    app.UseRequestLogging();
+
+    // Configure the HTTP request pipeline
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Generated API V1");
+            c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
+        });
     }
-});
 
-var app = builder.Build();
+    app.UseHttpsRedirection();
+    app.UseRouting();
+    app.UseAuthorization();
+    app.MapControllers();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Generated API V1");
-        c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
-    });
+    Log.Information("Web application configured and ready to start");
+    app.Run();
 }
-
-app.UseHttpsRedirection();
-app.UseRouting();
-app.UseAuthorization();
-app.MapControllers();
-
-app.Run();
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.Information("Shutting down web application");
+    Log.CloseAndFlush();
+}

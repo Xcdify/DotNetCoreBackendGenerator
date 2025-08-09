@@ -67,9 +67,15 @@ class DotNetCodeGenerator:
         # Generate common Result and Error classes
         files["src/Core/Common/Result.cs"] = self._generate_result_class()
         files["src/Core/Common/Error.cs"] = self._generate_error_class()
+        files["src/Core/Common/Examples/SensitiveDataExamples.cs"] = self._generate_sensitive_data_examples()
         
-        files["src/WebApi/Program.cs"] = self._generate_program(schema)
-        files["src/WebApi/appsettings.json"] = self._generate_appsettings(connection_string)
+        # Generate Serilog configuration and middleware
+        files["src/WebApi/Configuration/SerilogConfiguration.cs"] = self._generate_serilog_configuration(solution_name)
+        files["src/WebApi/Middleware/CorrelationMiddleware.cs"] = self._generate_correlation_middleware()
+        files["src/WebApi/Middleware/RequestLoggingMiddleware.cs"] = self._generate_request_logging_middleware()
+        
+        files["src/WebApi/Program.cs"] = self._generate_program(schema, solution_name)
+        files["src/WebApi/appsettings.json"] = self._generate_appsettings(connection_string, solution_name)
         files["src/WebApi/appsettings.Development.json"] = self._generate_appsettings_dev()
         
         # Generate project files with proper references
@@ -200,19 +206,19 @@ class DotNetCodeGenerator:
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def _generate_program(self, schema: Dict[str, Any]) -> str:
+    def _generate_program(self, schema: Dict[str, Any], solution_name: str = "GeneratedApp") -> str:
         template = self.env.get_template('program.cs.j2')
         tables = []
         for table in schema['tables']:
             tables.append({
                 'TableNamePascal': pascal_case(table['name'])
             })
-        return template.render(Tables=tables)
+        return template.render(Tables=tables, SolutionName=solution_name)
     
-    def _generate_appsettings(self, connection_string: str = "") -> str:
+    def _generate_appsettings(self, connection_string: str = "", solution_name: str = "GeneratedApp") -> str:
         template = self.env.get_template('appsettings.json.j2')
         normalized_conn_str = normalize_connection_string(connection_string)
-        return template.render(connection_string=normalized_conn_str)
+        return template.render(connection_string=normalized_conn_str, SolutionName=solution_name)
     
     def _generate_appsettings_dev(self) -> str:
         return """{
@@ -425,4 +431,20 @@ Run tests with: `dotnet test`
     
     def _generate_error_class(self) -> str:
         template = self.env.get_template('error.cs.j2')
+        return template.render()
+
+    def _generate_serilog_configuration(self, solution_name: str = "GeneratedApp") -> str:
+        template = self.env.get_template('serilog_configuration.cs.j2')
+        return template.render(SolutionName=solution_name)
+    
+    def _generate_correlation_middleware(self) -> str:
+        template = self.env.get_template('correlation_middleware.cs.j2')
+        return template.render()
+    
+    def _generate_request_logging_middleware(self) -> str:
+        template = self.env.get_template('request_logging_middleware.cs.j2')
+        return template.render()
+    
+    def _generate_sensitive_data_examples(self) -> str:
+        template = self.env.get_template('sensitive_data_examples.cs.j2')
         return template.render()
