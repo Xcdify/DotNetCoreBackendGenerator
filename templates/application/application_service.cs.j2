@@ -1,9 +1,12 @@
 using Application.Interfaces{{ GroupNamespace }};
+using Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }};
+using Application.Validators{{ GroupNamespace }}.{{ TableNamePascal }};
 using Core.Entities{{ GroupNamespace }};
 using Core.Interfaces{{ GroupNamespace }};
 using Core.Common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Application.Services{{ GroupNamespace }}
@@ -81,19 +84,32 @@ namespace Application.Services{{ GroupNamespace }}
         }
 
         /// <inheritdoc />
-        public async Task<Result<{{ TableNamePascal }}>> CreateAsync({{ TableNamePascal }} entity)
+        public async Task<Result<{{ TableNamePascal }}>> CreateAsync(Create{{ TableNamePascal }}Dto dto)
         {
-            if (entity == null)
-                return Error.Validation("Entity cannot be null");
+            if (dto == null)
+                return Error.Validation("DTO cannot be null");
 
-            var validationResult = ValidateEntity(entity);
-            if (validationResult.IsFailure)
-                return validationResult.Error!;
+            // Validate DTO
+            var validator = new Create{{ TableNamePascal }}DtoValidator();
+            var validationResult = validator.Validate(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Error.Validation(errors);
+            }
+
+            // Map DTO to entity
+            var entity = new {{ TableNamePascal }}
+            {
+                {% for col in NonPrimaryColumns %}
+                {{ col.NamePascal }} = dto.{{ col.NamePascal }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
 
             try
             {
-                await _repository.AddAsync(entity);
-                return Result<{{ TableNamePascal }}>.Success(entity);
+                var createdEntity = await _repository.AddAsync(entity);
+                return Result<{{ TableNamePascal }}>.Success(createdEntity);
             }
             catch (Exception ex)
             {
@@ -102,28 +118,36 @@ namespace Application.Services{{ GroupNamespace }}
         }
 
         /// <inheritdoc />
-        public async Task<Result> UpdateAsync({{ TableNamePascal }} entity)
+        public async Task<Result> UpdateAsync({{ PrimaryKey.CSharpType }} id, Update{{ TableNamePascal }}Dto dto)
         {
-            if (entity == null)
-                return Error.Validation("Entity cannot be null");
+            if (dto == null)
+                return Error.Validation("DTO cannot be null");
 
-            if (entity.{{ PrimaryKey.NamePascal }} == default({{ PrimaryKey.CSharpType }}))
-                return Error.Validation("Entity ID cannot be default value");
+            if (id == default({{ PrimaryKey.CSharpType }}))
+                return Error.Validation("ID cannot be default value");
 
-            var existsResult = await ExistsAsync(entity.{{ PrimaryKey.NamePascal }});
-            if (existsResult.IsFailure)
-                return existsResult.Error!;
+            // Validate DTO
+            var validator = new Update{{ TableNamePascal }}DtoValidator();
+            var validationResult = validator.Validate(dto);
+            if (!validationResult.IsValid)
+            {
+                var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+                return Error.Validation(errors);
+            }
 
-            if (!existsResult.Value)
-                return Error.NotFound($"{{ TableNamePascal }} with ID {entity.{{ PrimaryKey.NamePascal }}} not found");
+            // Check if entity exists
+            var existingEntity = await _repository.GetByIdAsync(id);
+            if (existingEntity == null)
+                return Error.NotFound($"{{ TableNamePascal }} with ID {id} not found");
 
-            var validationResult = ValidateEntity(entity);
-            if (validationResult.IsFailure)
-                return validationResult.Error!;
+            // Map DTO to entity
+            {% for col in NonPrimaryColumns %}
+            existingEntity.{{ col.NamePascal }} = dto.{{ col.NamePascal }};
+            {% endfor %}
 
             try
             {
-                await _repository.UpdateAsync(entity);
+                await _repository.UpdateAsync(existingEntity);
                 return Result.Success();
             }
             catch (Exception ex)
@@ -173,27 +197,5 @@ namespace Application.Services{{ GroupNamespace }}
             }
         }
 
-        /// <summary>
-        /// Validates the entity according to business rules
-        /// </summary>
-        /// <param name="entity">Entity to validate</param>
-        /// <returns>Result indicating if validation passed or failed</returns>
-        private Result ValidateEntity({{ TableNamePascal }} entity)
-        {
-            // Add your business validation rules here
-            // Examples:
-{% for col in NonPrimaryColumns -%}
-{% if col.CSharpType == 'string' and not col.IsNullable -%}
-            // if (string.IsNullOrWhiteSpace(entity.{{ col.NamePascal }}))
-            //     return Error.Validation("{{ col.NamePascal }} is required");
-{% endif -%}
-{% if col.CSharpType == 'string' -%}
-            // if (!string.IsNullOrEmpty(entity.{{ col.NamePascal }}) && entity.{{ col.NamePascal }}.Length > 255)
-            //     return Error.Validation("{{ col.NamePascal }} cannot exceed 255 characters");
-{% endif -%}
-{% endfor -%}
-
-            return Result.Success();
-        }
     }
 }

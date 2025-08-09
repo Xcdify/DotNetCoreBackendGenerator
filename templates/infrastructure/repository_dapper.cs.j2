@@ -48,7 +48,6 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             // Add search term filter (searches across text columns)
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                whereClause.Append(" AND (");
                 var searchClauses = new List<string>();
                 {% for col in Columns %}
                 {% if col.DataType in ['text', 'varchar', 'character varying', 'char', 'character'] %}
@@ -56,12 +55,14 @@ namespace Infrastructure.Data{{ GroupNamespace }}
                 {% endif %}
                 {% endfor %}
                 
+                // Only add search clause if there are text columns to search
                 if (searchClauses.Any())
                 {
+                    whereClause.Append(" AND (");
                     whereClause.Append(string.Join(" OR ", searchClauses));
+                    whereClause.Append(")");
                     parameters.Add("searchTerm", $"%{searchTerm}%");
                 }
-                whereClause.Append(")");
             }
             
             // Add dynamic filters
@@ -108,14 +109,17 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             return (items, totalCount);
         }
 
-        public async Task AddAsync({{ TableNamePascal }} entity)
+        public async Task<{{ TableNamePascal }}> AddAsync({{ TableNamePascal }} entity)
         {
             using var connection = new NpgsqlConnection(_connectionString);
             var sql = @"INSERT INTO {{ TableNameSnake }} 
                 ({% for col in NonPrimaryColumns %}{{ col.NameSnake }}{% if not loop.last %}, {% endif %}{% endfor %})
                 VALUES
-                ({% for col in NonPrimaryColumns %}@{{ col.NamePascal }}{% if not loop.last %}, {% endif %}{% endfor %})";
-            await connection.ExecuteAsync(sql, entity);
+                ({% for col in NonPrimaryColumns %}@{{ col.NamePascal }}{% if not loop.last %}, {% endif %}{% endfor %})
+                RETURNING *";
+            
+            var createdEntity = await connection.QuerySingleAsync<{{ TableNamePascal }}>(sql, entity);
+            return createdEntity;
         }
 
         public async Task UpdateAsync({{ TableNamePascal }} entity)

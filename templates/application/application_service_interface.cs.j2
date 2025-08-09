@@ -1,3 +1,4 @@
+using Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }};
 using Core.Entities{{ GroupNamespace }};
 using Core.Common;
 using System.Collections.Generic;
@@ -34,12 +35,12 @@ namespace Application.Interfaces{{ GroupNamespace }}
         /// <summary>
         /// Create a new {{ TableNamePascal }}
         /// </summary>
-        Task<Result<{{ TableNamePascal }}>> CreateAsync({{ TableNamePascal }} entity);
+        Task<Result<{{ TableNamePascal }}>> CreateAsync(Create{{ TableNamePascal }}Dto dto);
         
         /// <summary>
         /// Update an existing {{ TableNamePascal }}
         /// </summary>
-        Task<Result> UpdateAsync({{ TableNamePascal }} entity);
+        Task<Result> UpdateAsync({{ PrimaryKey.CSharpType }} id, Update{{ TableNamePascal }}Dto dto);
         
         /// <summary>
         /// Delete a {{ TableNamePascal }} by ID

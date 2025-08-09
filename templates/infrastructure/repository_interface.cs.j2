@@ -15,7 +15,7 @@ namespace Core.Interfaces{{ GroupNamespace }}
             string sortBy = null,
             bool sortDescending = false,
             Dictionary<string, object> filters = null);
-        Task AddAsync({{ TableNamePascal }} entity);
+        Task<{{ TableNamePascal }}> AddAsync({{ TableNamePascal }} entity);
         Task UpdateAsync({{ TableNamePascal }} entity);
         Task DeleteAsync({{ PrimaryKey.CSharpType }} id);
     }
