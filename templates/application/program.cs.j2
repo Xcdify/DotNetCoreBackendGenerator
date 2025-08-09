@@ -56,9 +56,13 @@ try
                 : Serilog.Events.LogEventLevel.Information;
         options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
         {
-            diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
-            diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
-            diagnosticContext.Set("RemoteIpAddress", httpContext.Connection.RemoteIpAddress);
+            var requestHost = httpContext.Request.Host.HasValue ? httpContext.Request.Host.ToString() : string.Empty;
+            var requestScheme = httpContext.Request.Scheme ?? string.Empty;
+            var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty;
+
+            diagnosticContext.Set("RequestHost", requestHost);
+            diagnosticContext.Set("RequestScheme", requestScheme);
+            diagnosticContext.Set("RemoteIpAddress", remoteIp);
         };
     });
 

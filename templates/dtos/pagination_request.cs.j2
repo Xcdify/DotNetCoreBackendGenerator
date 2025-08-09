@@ -7,13 +7,13 @@ namespace WebApi.DTOs{{ GroupNamespace }}
     {
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
-        public string SearchTerm { get; set; }
-        public string SortBy { get; set; }
+        public string? SearchTerm { get; set; }
+        public string? SortBy { get; set; }
         public bool SortDescending { get; set; } = false;
         
         {% for col in NonPrimaryColumns %}
         {% if col.CSharpType in ['string', 'int', 'long', 'decimal', 'double', 'float', 'bool', 'DateTime', 'Guid'] %}
-        public {{ col.CSharpType }}{% if col.IsNullable or col.CSharpType != 'string' %}?{% endif %} {{ col.NamePascal }} { get; set; }
+        public {% if col.CSharpType == 'string' %}string?{% elif '?' in col.CSharpType %}{{ col.CSharpType }}{% else %}{{ col.CSharpType }}?{% endif %} {{ col.NamePascal }} { get; set; }
         {% endif %}
         {% endfor %}
         

@@ -6,15 +6,15 @@ namespace Core.Interfaces{{ GroupNamespace }}
 {
     public interface I{{ TableNamePascal }}Repository
     {
-        Task<{{ TableNamePascal }}> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
+        Task<{{ TableNamePascal }}?> GetByIdAsync({{ PrimaryKey.CSharpType }} id);
         Task<IEnumerable<{{ TableNamePascal }}>> GetAllAsync();
         Task<(IEnumerable<{{ TableNamePascal }}> Items, int TotalCount)> GetPagedAsync(
             int pageNumber, 
             int pageSize, 
-            string searchTerm = null,
-            string sortBy = null,
+            string? searchTerm = null,
+            string? sortBy = null,
             bool sortDescending = false,
-            Dictionary<string, object> filters = null);
+            Dictionary<string, object>? filters = null);
         Task<{{ TableNamePascal }}> AddAsync({{ TableNamePascal }} entity);
         Task UpdateAsync({{ TableNamePascal }} entity);
         Task DeleteAsync({{ PrimaryKey.CSharpType }} id);

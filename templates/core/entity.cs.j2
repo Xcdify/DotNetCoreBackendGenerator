@@ -3,7 +3,13 @@ namespace Core.Entities{{ GroupNamespace }}
     public class {{ TableNamePascal }}
     {
 {% for col in Columns -%}
+        {% if col.CSharpType == 'string' -%}
+        public string{% if col.IsNullable %}?{% endif %} {{ col.NamePascal }} { get; set; }{% if not col.IsNullable %} = string.Empty;{% endif %}
+        {% elif col.CSharpType == 'byte[]' -%}
+        public byte[]{% if col.IsNullable %}?{% endif %} {{ col.NamePascal }} { get; set; }{% if not col.IsNullable %} = System.Array.Empty<byte>();{% endif %}
+        {% else -%}
         public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
+        {% endif -%}
 {% endfor -%}
     }
 }

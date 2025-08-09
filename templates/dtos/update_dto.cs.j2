@@ -27,7 +27,7 @@ namespace Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }}
         /// {{ col.NamePascal }}
         /// </summary>
         [StringLength(255, ErrorMessage = "{{ col.NamePascal }} cannot exceed 255 characters")]
-        public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
+        public string? {{ col.NamePascal }} { get; set; }
 
 {% elif not col.IsNullable and col.CSharpType in ['int', 'long', 'decimal', 'double'] -%}
         /// <summary>

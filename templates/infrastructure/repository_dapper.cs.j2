@@ -18,7 +18,7 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             _connectionString = connectionString;
         }
 
-        public async Task<{{ TableNamePascal }}> GetByIdAsync({{ PrimaryKey.CSharpType }} id)
+        public async Task<{{ TableNamePascal }}?> GetByIdAsync({{ PrimaryKey.CSharpType }} id)
         {
             using var connection = new NpgsqlConnection(_connectionString);
             return await connection.QueryFirstOrDefaultAsync<{{ TableNamePascal }}>(
@@ -36,10 +36,10 @@ namespace Infrastructure.Data{{ GroupNamespace }}
         public async Task<(IEnumerable<{{ TableNamePascal }}> Items, int TotalCount)> GetPagedAsync(
             int pageNumber, 
             int pageSize, 
-            string searchTerm = null,
-            string sortBy = null,
+            string? searchTerm = null,
+            string? sortBy = null,
             bool sortDescending = false,
-            Dictionary<string, object> filters = null)
+            Dictionary<string, object>? filters = null)
         {
             using var connection = new NpgsqlConnection(_connectionString);
             var parameters = new DynamicParameters();
