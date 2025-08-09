@@ -162,52 +162,52 @@ class DotNetCodeGenerator:
         }
     
     def generate_entity(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('entity.cs.j2')
+        template = self.env.get_template('core/entity.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_repository_interface(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('repository_interface.cs.j2')
+        template = self.env.get_template('infrastructure/repository_interface.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_repository_implementation(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('repository_dapper.cs.j2')
+        template = self.env.get_template('infrastructure/repository_dapper.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_controller(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('controller.cs.j2')
+        template = self.env.get_template('application/controller.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_application_service_interface(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('application_service_interface.cs.j2')
+        template = self.env.get_template('application/application_service_interface.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_application_service(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('application_service.cs.j2')
+        template = self.env.get_template('application/application_service.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_create_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('create_dto.cs.j2')
+        template = self.env.get_template('dtos/create_dto.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_update_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('update_dto.cs.j2')
+        template = self.env.get_template('dtos/update_dto.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_dto_validator(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('dto_validator.cs.j2')
+        template = self.env.get_template('dtos/dto_validator.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def _generate_program(self, schema: Dict[str, Any], solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('program.cs.j2')
+        template = self.env.get_template('application/program.cs.j2')
         tables = []
         for table in schema['tables']:
             tables.append({
@@ -216,7 +216,7 @@ class DotNetCodeGenerator:
         return template.render(Tables=tables, SolutionName=solution_name)
     
     def _generate_appsettings(self, connection_string: str = "", solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('appsettings.json.j2')
+        template = self.env.get_template('configuration/appsettings.json.j2')
         normalized_conn_str = normalize_connection_string(connection_string)
         return template.render(connection_string=normalized_conn_str, SolutionName=solution_name)
     
@@ -231,31 +231,31 @@ class DotNetCodeGenerator:
 }"""
     
     def _generate_core_csproj(self) -> str:
-        template = self.env.get_template('core.csproj.j2')
+        template = self.env.get_template('project/core.csproj.j2')
         return template.render()
     
     def _generate_application_csproj(self) -> str:
-        template = self.env.get_template('application.csproj.j2')
+        template = self.env.get_template('project/application.csproj.j2')
         return template.render()
     
     def _generate_infrastructure_csproj(self) -> str:
-        template = self.env.get_template('infrastructure.csproj.j2')
+        template = self.env.get_template('project/infrastructure.csproj.j2')
         return template.render()
     
     def _generate_webapi_csproj(self) -> str:
-        template = self.env.get_template('webapi.csproj.j2')
+        template = self.env.get_template('project/webapi.csproj.j2')
         return template.render()
     
     def _generate_solution(self, solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('solution.sln.j2')
+        template = self.env.get_template('project/solution.sln.j2')
         return template.render(SolutionName=solution_name)
     
     def _generate_application_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
-        template = self.env.get_template('application_di_extensions.cs.j2')
+        template = self.env.get_template('application/application_di_extensions.cs.j2')
         return template.render(Groups=grouped_tables)
     
     def _generate_infrastructure_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
-        template = self.env.get_template('infrastructure_di_extensions.cs.j2')
+        template = self.env.get_template('infrastructure/infrastructure_di_extensions.cs.j2')
         return template.render(Groups=grouped_tables)
     
     def _generate_gitignore(self) -> str:
@@ -426,25 +426,25 @@ Run tests with: `dotnet test`
 """
 
     def _generate_result_class(self) -> str:
-        template = self.env.get_template('result.cs.j2')
+        template = self.env.get_template('core/result.cs.j2')
         return template.render()
     
     def _generate_error_class(self) -> str:
-        template = self.env.get_template('error.cs.j2')
+        template = self.env.get_template('core/error.cs.j2')
         return template.render()
 
     def _generate_serilog_configuration(self, solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('serilog_configuration.cs.j2')
+        template = self.env.get_template('configuration/serilog_configuration.cs.j2')
         return template.render(SolutionName=solution_name)
     
     def _generate_correlation_middleware(self) -> str:
-        template = self.env.get_template('correlation_middleware.cs.j2')
+        template = self.env.get_template('middleware/correlation_middleware.cs.j2')
         return template.render()
     
     def _generate_request_logging_middleware(self) -> str:
-        template = self.env.get_template('request_logging_middleware.cs.j2')
+        template = self.env.get_template('middleware/request_logging_middleware.cs.j2')
         return template.render()
     
     def _generate_sensitive_data_examples(self) -> str:
-        template = self.env.get_template('sensitive_data_examples.cs.j2')
+        template = self.env.get_template('configuration/sensitive_data_examples.cs.j2')
         return template.render()

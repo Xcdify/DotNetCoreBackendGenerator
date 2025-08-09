@@ -134,13 +134,41 @@ Nullable columns are mapped to nullable C# types (e.g., `int?`)
 
 ### Modifying Templates
 
-Templates are in the `templates/` directory. Edit these Jinja2 templates to customize generated code:
+Templates are organized in the `templates/` directory by category. Edit these Jinja2 templates to customize generated code:
 
-- `entity.cs.j2` - Entity classes
-- `repository_interface.cs.j2` - Repository interfaces
-- `repository_dapper.cs.j2` - Dapper implementations
-- `controller.cs.j2` - API controllers
-- `program.cs.j2` - Application startup
+**Core Templates:**
+- `templates/core/entity.cs.j2` - Entity classes
+- `templates/core/error.cs.j2` - Error classes
+- `templates/core/result.cs.j2` - Result classes
+
+**Infrastructure Templates:**
+- `templates/infrastructure/repository_interface.cs.j2` - Repository interfaces
+- `templates/infrastructure/repository_dapper.cs.j2` - Dapper implementations
+- `templates/infrastructure/infrastructure_di_extensions.cs.j2` - DI configuration
+
+**Application Templates:**
+- `templates/application/controller.cs.j2` - API controllers
+- `templates/application/program.cs.j2` - Application startup
+- `templates/application/application_service.cs.j2` - Application services
+- `templates/application/application_di_extensions.cs.j2` - DI configuration
+
+**DTOs Templates:**
+- `templates/dtos/create_dto.cs.j2` - Create DTOs
+- `templates/dtos/update_dto.cs.j2` - Update DTOs
+- `templates/dtos/dto_validator.cs.j2` - DTO validators
+
+**Middleware Templates:**
+- `templates/middleware/correlation_middleware.cs.j2` - Correlation middleware
+- `templates/middleware/request_logging_middleware.cs.j2` - Request logging middleware
+
+**Configuration Templates:**
+- `templates/configuration/appsettings.json.j2` - Application settings
+- `templates/configuration/serilog_configuration.cs.j2` - Logging configuration
+- `templates/configuration/sensitive_data_examples.cs.j2` - Data examples
+
+**Project Templates:**
+- `templates/project/solution.sln.j2` - Solution file
+- `templates/project/*.csproj.j2` - Project files
 
 ### Adding New Templates
 
