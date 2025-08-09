@@ -1,0 +1,27 @@
+using AutoMapper;
+using Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }};
+using Core.Entities{{ GroupNamespace }};
+
+namespace Application.Mappings{{ GroupNamespace }}
+{
+    /// <summary>
+    /// AutoMapper profile for {{ TableNamePascal }} mappings
+    /// </summary>
+    public class {{ TableNamePascal }}Profile : Profile
+    {
+        public {{ TableNamePascal }}Profile()
+        {
+            // DTO -> Entity
+            CreateMap<Create{{ TableNamePascal }}Dto, {{ TableNamePascal }}>();
+
+            // DTO -> Entity (for updates)
+            CreateMap<Update{{ TableNamePascal }}Dto, {{ TableNamePascal }}>()
+                .ForMember(dest => dest.{{ PrimaryKey.NamePascal }}, opt => opt.Ignore());
+
+            // Optionally: Entity -> DTOs if you add response DTOs later
+            // CreateMap<{{ TableNamePascal }}, {{ TableNamePascal }}ResponseDto>();
+        }
+    }
+}
+
+

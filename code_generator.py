@@ -61,6 +61,9 @@ class DotNetCodeGenerator:
             files[f"src/Application/DTOs/{group}/{table_data['TableNamePascal']}/Update{table_data['TableNamePascal']}Dto.cs"] = self.generate_update_dto(table, group)
             files[f"src/Application/Validators/{group}/{table_data['TableNamePascal']}/{table_data['TableNamePascal']}DtoValidator.cs"] = self.generate_dto_validator(table, group)
             
+            # Generate AutoMapper Profile per table
+            files[f"src/Application/Mappings/{group}/{table_data['TableNamePascal']}Profile.cs"] = self.generate_mapping_profile(table, group)
+
             # Generate pagination DTOs
             files[f"src/WebApi/DTOs/{group}/{table_data['TableNamePascal']}FilterRequest.cs"] = self.generate_pagination_dto(table, group)
         
@@ -194,6 +197,11 @@ class DotNetCodeGenerator:
     
     def generate_application_service(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('application/application_service.cs.j2')
+        data = self._prepare_table_data(table, group)
+        return template.render(**data)
+
+    def generate_mapping_profile(self, table: Dict[str, Any], group: str = 'General') -> str:
+        template = self.env.get_template('application/mapping_profile.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     

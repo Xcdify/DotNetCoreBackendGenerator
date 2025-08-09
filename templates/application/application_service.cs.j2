@@ -4,6 +4,7 @@ using Application.Validators{{ GroupNamespace }}.{{ TableNamePascal }};
 using Core.Entities{{ GroupNamespace }};
 using Core.Interfaces{{ GroupNamespace }};
 using Core.Common;
+using AutoMapper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +18,12 @@ namespace Application.Services{{ GroupNamespace }}
     public class {{ TableNamePascal }}Service : I{{ TableNamePascal }}Service
     {
         private readonly I{{ TableNamePascal }}Repository _repository;
+        private readonly IMapper _mapper;
 
-        public {{ TableNamePascal }}Service(I{{ TableNamePascal }}Repository repository)
+        public {{ TableNamePascal }}Service(I{{ TableNamePascal }}Repository repository, IMapper mapper)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         /// <inheritdoc />
@@ -99,12 +102,7 @@ namespace Application.Services{{ GroupNamespace }}
             }
 
             // Map DTO to entity
-            var entity = new {{ TableNamePascal }}
-            {
-                {% for col in NonPrimaryColumns %}
-                {{ col.NamePascal }} = dto.{{ col.NamePascal }}{% if not loop.last %},{% endif %}
-                {% endfor %}
-            };
+            var entity = _mapper.Map<{{ TableNamePascal }}>(dto);
 
             try
             {
@@ -140,10 +138,8 @@ namespace Application.Services{{ GroupNamespace }}
             if (existingEntity == null)
                 return Error.NotFound($"{{ TableNamePascal }} with ID {id} not found");
 
-            // Map DTO to entity
-            {% for col in NonPrimaryColumns %}
-            existingEntity.{{ col.NamePascal }} = dto.{{ col.NamePascal }};
-            {% endfor %}
+            // Map DTO to existing entity
+            _mapper.Map(dto, existingEntity);
 
             try
             {
