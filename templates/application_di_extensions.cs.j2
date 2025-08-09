@@ -1,5 +1,3 @@
-using Application.Interfaces;
-using Application.Services;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
@@ -18,10 +16,15 @@ namespace Application.Extensions
         /// <returns>The service collection for chaining</returns>
         public static IServiceCollection AddApplication(this IServiceCollection services)
         {
-            // Register all application services
-            {% for table in Tables -%}
-            services.AddScoped<I{{ table.TableNamePascal }}Service, {{ table.TableNamePascal }}Service>();
-            {% endfor %}
+            // Register all application services by group
+{% for group, tables in Groups.items() %}
+            // {{ group }} group services
+{% for table in tables -%}
+{% set ns = "." + group if group != "General" else "" -%}
+            services.AddScoped<Application.Interfaces{{ ns }}.I{{ table.TableNamePascal }}Service, 
+                              Application.Services{{ ns }}.{{ table.TableNamePascal }}Service>();
+{% endfor %}
+{% endfor %}
 
             // Register FluentValidation validators
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());

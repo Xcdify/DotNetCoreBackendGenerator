@@ -1,9 +1,9 @@
-namespace Core.Entities
+namespace Core.Entities{{ GroupNamespace }}
 {
     public class {{ TableNamePascal }}
     {
-        {%- for col in Columns %}
+{% for col in Columns -%}
         public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
-        {%- endfor %}
+{% endfor -%}
     }
 }

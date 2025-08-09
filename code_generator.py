@@ -8,15 +8,28 @@ class DotNetCodeGenerator:
         self.env = Environment(
             loader=FileSystemLoader('templates'),
             trim_blocks=True,
-            lstrip_blocks=True
+            lstrip_blocks=True,
+            keep_trailing_newline=True
         )
     
     def generate_application(self, schema: Dict[str, Any], 
                            connection_string: str = "",
+                           table_groups: Optional[Dict[str, List[str]]] = None,
+                           solution_name: str = "GeneratedApp",
                            progress_callback: Optional[Callable[[int, str], None]] = None) -> Dict[str, str]:
         files = {}
         total_tables = len(schema['tables'])
         current_progress = 0
+        
+        # If no groups provided, put all tables in General group
+        if not table_groups:
+            table_groups = {'General': [table['name'] for table in schema['tables']]}
+        
+        # Create a mapping of table names to groups
+        table_to_group = {}
+        for group, tables in table_groups.items():
+            for table_name in tables:
+                table_to_group[table_name] = group
         
         if progress_callback:
             progress_callback(0, "Starting generation...")
@@ -25,24 +38,28 @@ class DotNetCodeGenerator:
             if progress_callback:
                 progress_callback(int((idx / total_tables) * 70), f"Processing table: {table['name']}")
             
-            table_data = self._prepare_table_data(table)
+            # Get the group for this table
+            group = table_to_group.get(table['name'], 'General')
             
-            files[f"src/Core/Entities/{table_data['TableNamePascal']}.cs"] = self.generate_entity(table)
+            table_data = self._prepare_table_data(table, group)
             
-            files[f"src/Core/Interfaces/I{table_data['TableNamePascal']}Repository.cs"] = self.generate_repository_interface(table)
+            # Generate files with group folders
+            files[f"src/Core/Entities/{group}/{table_data['TableNamePascal']}.cs"] = self.generate_entity(table, group)
             
-            files[f"src/Infrastructure/Data/{table_data['TableNamePascal']}Repository.cs"] = self.generate_repository_implementation(table)
+            files[f"src/Core/Interfaces/{group}/I{table_data['TableNamePascal']}Repository.cs"] = self.generate_repository_interface(table, group)
             
-            files[f"src/WebApi/Controllers/{table_data['TableNamePascal']}Controller.cs"] = self.generate_controller(table)
+            files[f"src/Infrastructure/Data/{group}/{table_data['TableNamePascal']}Repository.cs"] = self.generate_repository_implementation(table, group)
+            
+            files[f"src/WebApi/Controllers/{group}/{table_data['TableNamePascal']}Controller.cs"] = self.generate_controller(table, group)
             
             # Generate Application services
-            files[f"src/Application/Interfaces/I{table_data['TableNamePascal']}Service.cs"] = self.generate_application_service_interface(table)
-            files[f"src/Application/Services/{table_data['TableNamePascal']}Service.cs"] = self.generate_application_service(table)
+            files[f"src/Application/Interfaces/{group}/I{table_data['TableNamePascal']}Service.cs"] = self.generate_application_service_interface(table, group)
+            files[f"src/Application/Services/{group}/{table_data['TableNamePascal']}Service.cs"] = self.generate_application_service(table, group)
             
             # Generate DTOs and validators (optional)
-            files[f"src/Application/DTOs/{table_data['TableNamePascal']}/Create{table_data['TableNamePascal']}Dto.cs"] = self.generate_create_dto(table)
-            files[f"src/Application/DTOs/{table_data['TableNamePascal']}/Update{table_data['TableNamePascal']}Dto.cs"] = self.generate_update_dto(table)
-            files[f"src/Application/Validators/{table_data['TableNamePascal']}/{table_data['TableNamePascal']}DtoValidator.cs"] = self.generate_dto_validator(table)
+            files[f"src/Application/DTOs/{group}/{table_data['TableNamePascal']}/Create{table_data['TableNamePascal']}Dto.cs"] = self.generate_create_dto(table, group)
+            files[f"src/Application/DTOs/{group}/{table_data['TableNamePascal']}/Update{table_data['TableNamePascal']}Dto.cs"] = self.generate_update_dto(table, group)
+            files[f"src/Application/Validators/{group}/{table_data['TableNamePascal']}/{table_data['TableNamePascal']}DtoValidator.cs"] = self.generate_dto_validator(table, group)
         
         if progress_callback:
             progress_callback(80, "Generating Program.cs and configuration files...")
@@ -57,26 +74,37 @@ class DotNetCodeGenerator:
         files["src/Infrastructure/Infrastructure.csproj"] = self._generate_infrastructure_csproj()
         files["src/WebApi/WebApi.csproj"] = self._generate_webapi_csproj()
         
-        # Generate solution file
-        files["GeneratedApp.sln"] = self._generate_solution()
+        # Generate solution file with custom name
+        files[f"{solution_name}.sln"] = self._generate_solution(solution_name)
         
-        # Generate DI extension methods
-        files["src/Application/Extensions/ServiceCollectionExtensions.cs"] = self._generate_application_di_extensions(schema)
-        files["src/Infrastructure/Extensions/ServiceCollectionExtensions.cs"] = self._generate_infrastructure_di_extensions(schema)
+        # Generate DI extension methods with groups
+        grouped_tables = {}
+        for group, table_names in table_groups.items():
+            grouped_tables[group] = []
+            for table_name in table_names:
+                for table in schema['tables']:
+                    if table['name'] == table_name:
+                        grouped_tables[group].append({
+                            'TableNamePascal': pascal_case(table['name'])
+                        })
+                        break
+        
+        files["src/Application/Extensions/ServiceCollectionExtensions.cs"] = self._generate_application_di_extensions(grouped_tables)
+        files["src/Infrastructure/Extensions/ServiceCollectionExtensions.cs"] = self._generate_infrastructure_di_extensions(grouped_tables)
         
         files["src/Application/README.md"] = "# Application Layer\n\nPlace your use cases and application services here."
         files["tests/UnitTests/README.md"] = "# Unit Tests\n\nPlace your unit tests here."
         files["tests/IntegrationTests/README.md"] = "# Integration Tests\n\nPlace your integration tests here."
         
         files[".gitignore"] = self._generate_gitignore()
-        files["README.md"] = self._generate_readme()
+        files["README.md"] = self._generate_readme(solution_name)
         
         if progress_callback:
             progress_callback(100, "Generation complete!")
         
         return files
     
-    def _prepare_table_data(self, table: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_table_data(self, table: Dict[str, Any], group: str = 'General') -> Dict[str, Any]:
         columns = []
         non_primary_columns = []
         primary_key = None
@@ -118,52 +146,54 @@ class DotNetCodeGenerator:
             'NonPrimaryColumns': non_primary_columns,
             'PrimaryKey': primary_key,
             'PrimaryKeys': table.get('primary_keys', []),
-            'ForeignKeys': table.get('foreign_keys', [])
+            'ForeignKeys': table.get('foreign_keys', []),
+            'Group': group,
+            'GroupNamespace': f".{group}" if group != 'General' else ""
         }
     
-    def generate_entity(self, table: Dict[str, Any]) -> str:
+    def generate_entity(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('entity.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_repository_interface(self, table: Dict[str, Any]) -> str:
+    def generate_repository_interface(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('repository_interface.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_repository_implementation(self, table: Dict[str, Any]) -> str:
+    def generate_repository_implementation(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('repository_dapper.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_controller(self, table: Dict[str, Any]) -> str:
+    def generate_controller(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('controller.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_application_service_interface(self, table: Dict[str, Any]) -> str:
+    def generate_application_service_interface(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('application_service_interface.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_application_service(self, table: Dict[str, Any]) -> str:
+    def generate_application_service(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('application_service.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_create_dto(self, table: Dict[str, Any]) -> str:
+    def generate_create_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('create_dto.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_update_dto(self, table: Dict[str, Any]) -> str:
+    def generate_update_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('update_dto.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
-    def generate_dto_validator(self, table: Dict[str, Any]) -> str:
+    def generate_dto_validator(self, table: Dict[str, Any], group: str = 'General') -> str:
         template = self.env.get_template('dto_validator.cs.j2')
-        data = self._prepare_table_data(table)
+        data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def _generate_program(self, schema: Dict[str, Any]) -> str:
@@ -206,27 +236,17 @@ class DotNetCodeGenerator:
         template = self.env.get_template('webapi.csproj.j2')
         return template.render()
     
-    def _generate_solution(self) -> str:
+    def _generate_solution(self, solution_name: str = "GeneratedApp") -> str:
         template = self.env.get_template('solution.sln.j2')
-        return template.render()
+        return template.render(SolutionName=solution_name)
     
-    def _generate_application_di_extensions(self, schema: Dict[str, Any]) -> str:
+    def _generate_application_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
         template = self.env.get_template('application_di_extensions.cs.j2')
-        tables = []
-        for table in schema['tables']:
-            tables.append({
-                'TableNamePascal': pascal_case(table['name'])
-            })
-        return template.render(Tables=tables)
+        return template.render(Groups=grouped_tables)
     
-    def _generate_infrastructure_di_extensions(self, schema: Dict[str, Any]) -> str:
+    def _generate_infrastructure_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
         template = self.env.get_template('infrastructure_di_extensions.cs.j2')
-        tables = []
-        for table in schema['tables']:
-            tables.append({
-                'TableNamePascal': pascal_case(table['name'])
-            })
-        return template.render(Tables=tables)
+        return template.render(Groups=grouped_tables)
     
     def _generate_gitignore(self) -> str:
         return """## Ignore Visual Studio temporary files, build results, and
@@ -351,8 +371,8 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini"""
     
-    def _generate_readme(self) -> str:
-        return """# Generated .NET Core Clean Architecture Application
+    def _generate_readme(self, solution_name: str = "GeneratedApp") -> str:
+        return f"""# {solution_name} - .NET Core Clean Architecture Application
 
 This application was generated from your PostgreSQL database schema.
 

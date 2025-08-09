@@ -1,15 +1,15 @@
-using Application.Interfaces;
-using Core.Entities;
+using Application.Interfaces{{ GroupNamespace }};
+using Core.Entities{{ GroupNamespace }};
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
-namespace WebApi.Controllers
+namespace WebApi.Controllers{{ GroupNamespace }}
 {
     /// <summary>
     /// {{ TableNamePascal }} management endpoints
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/{% if Group != 'General' %}{{ Group }}/{% endif %}[controller]")]
     [Produces("application/json")]
     public class {{ TableNamePascal }}Controller : ControllerBase
     {

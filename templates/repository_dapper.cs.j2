@@ -1,11 +1,11 @@
-using Core.Entities;
-using Core.Interfaces;
+using Core.Entities{{ GroupNamespace }};
+using Core.Interfaces{{ GroupNamespace }};
 using Dapper;
 using Npgsql;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Infrastructure.Data
+namespace Infrastructure.Data{{ GroupNamespace }}
 {
     public class {{ TableNamePascal }}Repository : I{{ TableNamePascal }}Repository
     {

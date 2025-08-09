@@ -1,10 +1,10 @@
-using Application.Interfaces;
-using Core.Entities;
-using Core.Interfaces;
+using Application.Interfaces{{ GroupNamespace }};
+using Core.Entities{{ GroupNamespace }};
+using Core.Interfaces{{ GroupNamespace }};
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Application.Services
+namespace Application.Services{{ GroupNamespace }}
 {
     /// <summary>
     /// Service implementation for {{ TableNamePascal }} operations
@@ -101,16 +101,16 @@ namespace Application.Services
         {
             // Add your business validation rules here
             // Examples:
-            {% for col in NonPrimaryColumns %}
-            {% if col.CSharpType == 'string' and not col.IsNullable %}
+{% for col in NonPrimaryColumns -%}
+{% if col.CSharpType == 'string' and not col.IsNullable -%}
             // if (string.IsNullOrWhiteSpace(entity.{{ col.NamePascal }}))
             //     throw new ArgumentException("{{ col.NamePascal }} is required", nameof(entity));
-            {% endif %}
-            {% if col.CSharpType == 'string' %}
+{% endif -%}
+{% if col.CSharpType == 'string' -%}
             // if (!string.IsNullOrEmpty(entity.{{ col.NamePascal }}) && entity.{{ col.NamePascal }}.Length > 255)
             //     throw new ArgumentException("{{ col.NamePascal }} cannot exceed 255 characters", nameof(entity));
-            {% endif %}
-            {% endfor %}
+{% endif -%}
+{% endfor -%}
         }
     }
 }
