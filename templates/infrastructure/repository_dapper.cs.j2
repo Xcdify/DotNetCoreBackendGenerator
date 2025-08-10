@@ -3,9 +3,8 @@ using Core.Interfaces{{ GroupNamespace }};
 using Dapper;
 using Npgsql;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using Infrastructure.Data.Common;
 
 namespace Infrastructure.Data{{ GroupNamespace }}
 {
@@ -42,76 +41,24 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             Dictionary<string, object>? filters = null)
         {
             using var connection = new NpgsqlConnection(_connectionString);
-            var parameters = new DynamicParameters();
-            var whereClause = new StringBuilder(" WHERE 1=1");
-            
-            // Add search term filter (searches across text columns)
-            if (!string.IsNullOrWhiteSpace(searchTerm))
-            {
-                var searchClauses = new List<string>();
-                {% for col in Columns %}
-                {% if col.CSharpType == 'string' %}
-                searchClauses.Add("{{ col.NameSnake }}::text ILIKE @searchTerm");
-                {% endif %}
-                {% endfor %}
-                
-                // Only add search clause if there are text columns to search
-                if (searchClauses.Any())
-                {
-                    whereClause.Append(" AND (");
-                    whereClause.Append(string.Join(" OR ", searchClauses));
-                    whereClause.Append(")");
-                    parameters.Add("searchTerm", $"%{searchTerm}%");
-                }
-            }
-            
-            // Add dynamic filters
-            if (filters != null && filters.Any())
-            {
-                foreach (var filter in filters)
-                {
-                    if (filter.Value != null)
-                    {
-                        whereClause.Append($" AND {filter.Key} = @{filter.Key}");
-                        parameters.Add(filter.Key, filter.Value);
-                    }
-                }
-            }
-            
-            // Determine sort column (default to primary key if not specified) with whitelist to prevent SQL injection
-            var allowedSortColumns = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-            {
-                "{{ PrimaryKey.NameSnake }}"{% for col in Columns %}{% if not col.IsPrimaryKey %}, "{{ col.NameSnake }}"{% endif %}{% endfor %}
-            };
-            var sortColumn = !string.IsNullOrWhiteSpace(sortBy) && allowedSortColumns.Contains(sortBy!)
-                ? sortBy!
-                : "{{ PrimaryKey.NameSnake }}";
-            var sortDirection = sortDescending ? "DESC" : "ASC";
-            
-            // Calculate offset
-            var offset = (pageNumber - 1) * pageSize;
-            parameters.Add("offset", offset);
-            parameters.Add("limit", pageSize);
-            
-            // Build queries
-            var dataQuery = $@"
-                SELECT * FROM {{ TableNameSnake }}
-                {whereClause}
-                ORDER BY {sortColumn} {sortDirection}
-                LIMIT @limit OFFSET @offset";
-            
-            var countQuery = $@"
-                SELECT COUNT(*) FROM {{ TableNameSnake }}
-                {whereClause}";
-            
-            // Execute both queries
-            using var multi = await connection.QueryMultipleAsync(
-                dataQuery + ";" + countQuery, 
-                parameters);
-            
+            var allowedColumns = new[] { "{{ PrimaryKey.NameSnake }}"{% for col in Columns %}{% if not col.IsPrimaryKey %}, "{{ col.NameSnake }}"{% endif %}{% endfor %} };
+
+            var builder = SqlQueryBuilder
+                .From("{{ TableNameSnake }}", allowedColumns)
+                .SearchAcross(new string[] { {% for col in Columns %}{% if col.CSharpType == 'string' %}"{{ col.NameSnake }}"{% if not loop.last %}, {% endif %}{% endif %}{% endfor %} }, searchTerm)
+                .ApplyFilters(filters)
+                .Paginate(pageNumber, pageSize);
+
+            var allowedSet = new HashSet<string>(allowedColumns, System.StringComparer.OrdinalIgnoreCase);
+            var orderBy = !string.IsNullOrWhiteSpace(sortBy) && allowedSet.Contains(sortBy!) ? sortBy! : "{{ PrimaryKey.NameSnake }}";
+            builder.OrderBy(orderBy, sortDescending);
+
+            var (dataSql, parameters) = builder.BuildSelect();
+            var (countSql, _) = builder.BuildCount();
+
+            using var multi = await connection.QueryMultipleAsync(dataSql + ";" + countSql, parameters);
             var items = await multi.ReadAsync<{{ TableNamePascal }}>();
             var totalCount = await multi.ReadSingleAsync<int>();
-            
             return (items, totalCount);
         }
 

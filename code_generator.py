@@ -110,6 +110,8 @@ class DotNetCodeGenerator:
         
         files["src/Application/Extensions/ServiceCollectionExtensions.cs"] = self._generate_application_di_extensions(grouped_tables)
         files["src/Infrastructure/Extensions/ServiceCollectionExtensions.cs"] = self._generate_infrastructure_di_extensions(grouped_tables)
+        # Common Infrastructure utilities
+        files["src/Infrastructure/Data/Common/SqlQueryBuilder.cs"] = self._generate_sql_query_builder()
         
         files["src/Application/README.md"] = "# Application Layer\n\nPlace your use cases and application services here."
         files["tests/UnitTests/README.md"] = "# Unit Tests\n\nPlace your unit tests here."
@@ -281,6 +283,10 @@ class DotNetCodeGenerator:
     def _generate_infrastructure_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
         template = self.env.get_template('infrastructure/infrastructure_di_extensions.cs.j2')
         return template.render(Groups=grouped_tables)
+
+    def _generate_sql_query_builder(self) -> str:
+        template = self.env.get_template('infrastructure/sql_query_builder.cs.j2')
+        return template.render()
     
     def _generate_gitignore(self) -> str:
         return """## Ignore Visual Studio temporary files, build results, and

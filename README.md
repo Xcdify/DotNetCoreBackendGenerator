@@ -7,6 +7,7 @@ A Python utility using Streamlit and uv that generates a clean architecture .NET
 - 🗄️ **Database Schema Reading**: Connects to PostgreSQL and reads complete schema
 - 🏗️ **Clean Architecture**: Generates properly structured .NET Core 9 application
 - 🔧 **Dapper Integration**: Uses Dapper for efficient data access
+- 🔎 **Fluent SQL Builder**: Reusable `SqlQueryBuilder` for safe dynamic filtering, search, sort, and pagination
 - 📝 **Template-Based Generation**: Customizable Jinja2 templates
 - 🎯 **Type Mapping**: Automatic PostgreSQL to C# type conversion
 - 📦 **ZIP Download**: Download generated application as ZIP
@@ -144,6 +145,7 @@ Templates are organized in the `templates/` directory by category. Edit these Ji
 **Infrastructure Templates:**
 - `templates/infrastructure/repository_interface.cs.j2` - Repository interfaces
 - `templates/infrastructure/repository_dapper.cs.j2` - Dapper implementations
+- `templates/infrastructure/sql_query_builder.cs.j2` - Fluent SQL builder utility
 - `templates/infrastructure/infrastructure_di_extensions.cs.j2` - DI configuration
 
 **Application Templates:**
