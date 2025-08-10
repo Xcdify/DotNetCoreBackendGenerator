@@ -43,7 +43,7 @@ A Python utility using Streamlit and uv that generates a clean architecture .NET
 
 ```bash
 # Install dependencies
-uv pip install streamlit psycopg2-binary jinja2 pydantic python-dotenv
+uv sync
 
 # Run the application
 uv run streamlit run app.py
@@ -129,7 +129,7 @@ Nullable columns are mapped to nullable C# types (e.g., `int?`)
    dotnet run
    ```
 
-4. Access Swagger UI at: `https://localhost:5001/swagger`
+4. Access Swagger UI at: `https://localhost:5000/swagger`
 
 ## Customization
 
