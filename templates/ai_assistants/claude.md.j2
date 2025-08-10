@@ -1,0 +1,394 @@
+# Claude AI Assistant Instructions - {{ SolutionName }}
+
+## Project Overview
+You are working with {{ SolutionName }}, a .NET Core 9 API project that follows Clean Architecture principles. The project uses Dapper as the ORM, PostgreSQL as the database, and implements comprehensive patterns for enterprise-grade applications.
+
+## Your Role
+As an AI assistant, you must ensure all code you generate or modify adheres to the established architecture patterns, coding standards, and best practices defined in this project. Your code should be production-ready, secure, and maintainable.
+
+## Critical Architecture Rules
+
+### Layer Dependencies (NEVER VIOLATE)
+```
+WebApi → Application → Core ← Infrastructure → Core
+```
+- Core has NO dependencies (pure business logic)
+- Infrastructure depends ONLY on Core
+- Application depends ONLY on Core
+- WebApi depends on Application and Infrastructure (for DI only)
+
+### Project Structure You Must Follow
+```
+Solution/
+├── src/
+│   ├── Core/                    # Domain layer (no dependencies)
+│   │   ├── Entities/            # Domain models
+│   │   ├── Interfaces/          # Repository contracts
+│   │   ├── Common/              # Result, Error classes
+│   │   └── Errors/              # Domain exceptions
+│   │
+│   ├── Infrastructure/          # Data access layer
+│   │   ├── Data/               # Repository implementations
+│   │   ├── Configuration/      # Database configuration
+│   │   └── Services/           # External services
+│   │
+│   ├── Application/            # Business logic layer
+│   │   ├── Services/           # Application services
+│   │   ├── Interfaces/         # Service contracts
+│   │   ├── DTOs/              # Data transfer objects
+│   │   ├── Validators/        # FluentValidation validators
+│   │   └── Mappings/          # AutoMapper profiles
+│   │
+│   └── WebApi/                 # Presentation layer
+│       ├── Controllers/        # API endpoints
+│       ├── Middleware/         # Custom middleware
+│       ├── Configuration/      # App configuration
+│       └── Program.cs         # Application entry point
+│
+└── tests/
+    ├── UnitTests/
+    ├── IntegrationTests/
+    └── PerformanceTests/
+```
+
+## Mandatory Coding Patterns
+
+### 1. Entity Pattern (Core Layer)
+```csharp
+namespace Core.Entities.{GroupName}
+{
+    public class {EntityName}
+    {
+        // Use nullable reference types appropriately
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+}
+```
+
+### 2. Repository Interface Pattern (Core Layer)
+```csharp
+namespace Core.Interfaces.{GroupName}
+{
+    public interface I{EntityName}Repository
+    {
+        Task<{EntityName}?> GetByIdAsync(Guid id);
+        Task<IEnumerable<{EntityName}>> GetAllAsync();
+        Task<({IEnumerable<{EntityName}> Items, int TotalCount)> GetPagedAsync(
+            int pageNumber, int pageSize, string? searchTerm = null,
+            string? sortBy = null, bool sortDescending = false,
+            Dictionary<string, object>? filters = null);
+        Task<{EntityName}> AddAsync({EntityName} entity);
+        Task UpdateAsync({EntityName} entity);
+        Task DeleteAsync(Guid id);
+    }
+}
+```
+
+### 3. Repository Implementation Pattern (Infrastructure Layer)
+```csharp
+namespace Infrastructure.Data.{GroupName}
+{
+    public class {EntityName}Repository : I{EntityName}Repository
+    {
+        private readonly string _connectionString;
+        
+        public {EntityName}Repository(string connectionString)
+        {
+            _connectionString = connectionString;
+        }
+        
+        public async Task<{EntityName}?> GetByIdAsync(Guid id)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            // ALWAYS use parameterized queries
+            return await connection.QueryFirstOrDefaultAsync<{EntityName}>(
+                "SELECT * FROM {table_name} WHERE id = @id", 
+                new { id });
+        }
+        // ... other methods
+    }
+}
+```
+
+### 4. Service Pattern (Application Layer)
+```csharp
+namespace Application.Services.{GroupName}
+{
+    public class {EntityName}Service : I{EntityName}Service
+    {
+        private readonly I{EntityName}Repository _repository;
+        private readonly IMapper _mapper;
+        
+        public {EntityName}Service(I{EntityName}Repository repository, IMapper mapper)
+        {
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        }
+        
+        public async Task<Result<{EntityName}>> GetByIdAsync(Guid id)
+        {
+            // ALWAYS validate input
+            if (id == Guid.Empty)
+                return Error.Validation("ID cannot be empty");
+            
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity == null)
+                return Error.NotFound($"{EntityName} with ID {id} not found");
+            
+            return Result<{EntityName}>.Success(entity);
+        }
+    }
+}
+```
+
+### 5. Controller Pattern (WebApi Layer)
+```csharp
+namespace WebApi.Controllers.{GroupName}
+{
+    [ApiController]
+    [Route("api/{groupname}/[controller]")]
+    [Produces("application/json")]
+    public class {EntityName}Controller : ControllerBase
+    {
+        private readonly I{EntityName}Service _service;
+        
+        public {EntityName}Controller(I{EntityName}Service service)
+        {
+            _service = service ?? throw new ArgumentNullException(nameof(service));
+        }
+        
+        [HttpGet("{id}")]
+        [ProducesResponseType(typeof({EntityName}), 200)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var result = await _service.GetByIdAsync(id);
+            
+            if (result.IsFailure)
+            {
+                return result.Error!.Type switch
+                {
+                    ErrorType.NotFound => NotFound(result.Error.Message),
+                    ErrorType.Validation => BadRequest(result.Error.Message),
+                    _ => StatusCode(500, "An error occurred")
+                };
+            }
+            
+            return Ok(result.Value);
+        }
+    }
+}
+```
+
+## Result Pattern Usage (MANDATORY)
+All service methods MUST return Result<T> for proper error handling:
+
+```csharp
+// Success case
+return Result<User>.Success(user);
+
+// Error cases
+return Error.NotFound("User not found");
+return Error.Validation("Invalid email format");
+return Error.Conflict("Email already exists");
+return Error.Internal("Database connection failed");
+```
+
+## SQL Query Builder Usage
+For dynamic queries, ALWAYS use the SqlQueryBuilder:
+
+```csharp
+var builder = SqlQueryBuilder
+    .From("users", allowedColumns)
+    .SearchAcross(new[] { "name", "email" }, searchTerm)
+    .ApplyFilters(filters)
+    .OrderBy(sortBy, sortDescending)
+    .Paginate(pageNumber, pageSize);
+
+var (sql, parameters) = builder.BuildSelect();
+```
+
+## Logging Requirements
+ALWAYS include structured logging:
+
+```csharp
+_logger.LogInformation("Getting user by ID {UserId}", userId);
+_logger.LogError(ex, "Failed to get user {UserId}", userId);
+```
+
+## Security Checklist
+- ✅ NEVER concatenate SQL strings - use parameters
+- ✅ NEVER log sensitive data (passwords, tokens, keys)
+- ✅ ALWAYS validate input parameters
+- ✅ ALWAYS use nullable reference types
+- ✅ ALWAYS check for null before operations
+- ✅ NEVER expose internal implementation details
+
+## Performance Guidelines
+- Use async/await for ALL database operations
+- Implement pagination for list endpoints
+- Use connection pooling (handled by Npgsql)
+- Consider caching for frequently accessed data
+- Use `IAsyncEnumerable` for streaming large datasets
+
+## Testing Requirements
+When writing tests:
+```csharp
+// Unit Test Example
+[Fact]
+public async Task GetByIdAsync_WhenUserExists_ReturnsSuccess()
+{
+    // Arrange
+    var userId = Guid.NewGuid();
+    var expectedUser = new User { Id = userId };
+    _mockRepository.Setup(x => x.GetByIdAsync(userId))
+        .ReturnsAsync(expectedUser);
+    
+    // Act
+    var result = await _service.GetByIdAsync(userId);
+    
+    // Assert
+    result.IsSuccess.Should().BeTrue();
+    result.Value.Should().Be(expectedUser);
+}
+```
+
+## Common Mistakes to AVOID
+1. ❌ Putting business logic in controllers
+2. ❌ Returning entities directly from API
+3. ❌ Using synchronous database calls
+4. ❌ Forgetting null checks
+5. ❌ Hardcoding connection strings
+6. ❌ Missing XML documentation
+7. ❌ Not using Result pattern
+8. ❌ SQL injection vulnerabilities
+9. ❌ Circular dependencies
+10. ❌ Exposing sensitive data in logs
+
+## When Adding New Features
+
+### Step-by-Step Process:
+1. **Define Entity** in Core/Entities
+2. **Create Repository Interface** in Core/Interfaces
+3. **Implement Repository** in Infrastructure/Data
+4. **Create DTOs** in Application/DTOs
+5. **Create Service Interface** in Application/Interfaces
+6. **Implement Service** in Application/Services
+7. **Add Validation** in Application/Validators
+8. **Create Mapping Profile** in Application/Mappings
+9. **Implement Controller** in WebApi/Controllers
+10. **Register in DI** in respective DI extension classes
+11. **Write Tests** for each layer
+12. **Update Swagger Documentation**
+
+## AutoMapper Configuration
+```csharp
+public class UserProfile : Profile
+{
+    public UserProfile()
+    {
+        CreateMap<User, UserDto>();
+        CreateMap<CreateUserDto, User>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+    }
+}
+```
+
+## Dependency Injection Setup
+```csharp
+// In ApplicationDiExtensions.cs
+services.AddScoped<IUserService, UserService>();
+
+// In InfrastructureDiExtensions.cs
+services.AddScoped<IUserRepository>(provider => 
+    new UserRepository(connectionString));
+```
+
+## Middleware Pipeline Order
+```csharp
+// Program.cs - Order matters!
+app.UseMiddleware<CorrelationMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseMiddleware<ErrorHandlingMiddleware>();
+app.MapControllers();
+```
+
+## Response Format Standards
+```json
+// Success Response
+{
+    "data": { },
+    "correlationId": "abc-123"
+}
+
+// Error Response
+{
+    "error": {
+        "type": "Validation",
+        "message": "Invalid input",
+        "details": []
+    },
+    "correlationId": "abc-123"
+}
+
+// Paged Response
+{
+    "items": [],
+    "totalCount": 100,
+    "pageNumber": 1,
+    "pageSize": 10,
+    "totalPages": 10
+}
+```
+
+## Database Naming Conventions
+- Tables: lowercase_with_underscores (e.g., user_accounts)
+- Columns: lowercase_with_underscores (e.g., created_at)
+- Primary keys: id (UUID type preferred)
+- Foreign keys: {table}_id (e.g., user_id)
+- Indexes: idx_{table}_{columns} (e.g., idx_users_email)
+
+## Git Commit Message Format
+```
+feat: Add user authentication
+fix: Resolve null reference in UserService
+refactor: Simplify repository pattern implementation
+docs: Update API documentation
+test: Add unit tests for UserController
+chore: Update NuGet packages
+```
+
+## Final Reminders
+1. **Always follow the existing patterns** - consistency is key
+2. **Never skip validation** - validate early and often
+3. **Use async everywhere** - no blocking calls
+4. **Log strategically** - not too much, not too little
+5. **Test edge cases** - null, empty, invalid inputs
+6. **Document public APIs** - XML comments for Swagger
+7. **Handle errors gracefully** - use Result pattern
+8. **Keep it simple** - avoid over-engineering
+9. **Performance matters** - profile and optimize
+10. **Security first** - never trust input
+
+## Questions to Ask Yourself
+Before submitting code, verify:
+- ✅ Does it follow Clean Architecture?
+- ✅ Is it testable?
+- ✅ Is it secure?
+- ✅ Is it logged appropriately?
+- ✅ Does it handle errors properly?
+- ✅ Is it documented?
+- ✅ Does it follow naming conventions?
+- ✅ Is it performant?
+- ✅ Is it maintainable?
+- ✅ Would you want to maintain this code?
+
+Remember: You are writing code that will be used in production. Make it robust, clean, and professional.

@@ -1,0 +1,238 @@
+# .NET Core API Development Rules - {{ SolutionName }}
+
+## Project Context
+This is a .NET Core 9 API project ({{ SolutionName }}) following Clean Architecture principles with Dapper ORM, PostgreSQL database, and comprehensive logging with Serilog.
+
+## Architecture Overview
+The solution follows Clean Architecture with clear separation of concerns:
+- **Core Layer**: Domain entities, interfaces, common utilities (no external dependencies)
+- **Infrastructure Layer**: Data access with Dapper, external service integrations
+- **Application Layer**: Business logic, DTOs, validators, mapping profiles
+- **WebApi Layer**: Controllers, middleware, configuration, Program.cs
+
+## Code Style Guidelines
+
+### General C# Conventions
+- Use C# 12 features and .NET 9 capabilities
+- Prefer explicit typing over var for better readability
+- Use nullable reference types (`#nullable enable`)
+- Initialize non-nullable properties to avoid CS8618 warnings
+- Use `string.Empty` instead of `""`
+- Use `Array.Empty<T>()` instead of `new T[0]`
+- Always use braces for control flow statements
+- Use expression-bodied members where appropriate
+
+### Naming Conventions
+- **Namespaces**: Follow folder structure (e.g., `Core.Entities.Users`)
+- **Classes/Interfaces**: PascalCase (e.g., `UserService`, `IUserRepository`)
+- **Methods**: PascalCase (e.g., `GetByIdAsync`)
+- **Private fields**: _camelCase (e.g., `_userRepository`)
+- **Parameters/locals**: camelCase (e.g., `userId`)
+- **Constants**: UPPER_CASE (e.g., `MAX_RETRY_COUNT`)
+
+### Async/Await Patterns
+- All data access methods must be async
+- Use `ConfigureAwait(false)` in library code
+- Suffix async methods with `Async`
+- Never use `.Result` or `.Wait()` - always await
+- Use `ValueTask` for hot paths
+
+### Dependency Injection
+- Constructor injection only (no property injection)
+- Validate dependencies with null checks: `?? throw new ArgumentNullException(nameof(param))`
+- Register services in DI extension methods per layer
+- Use appropriate lifetimes: Scoped for repositories, Singleton for configuration
+
+### Error Handling
+- Use Result<T> pattern for service layer operations
+- Return appropriate Error types: Validation, NotFound, Conflict, Internal
+- Never throw exceptions for business logic errors
+- Log exceptions with correlation IDs
+- Use global exception middleware for unhandled exceptions
+
+### Repository Pattern Rules
+- Repositories return entities, not DTOs
+- Use Dapper with parameterized queries (prevent SQL injection)
+- Include pagination support with `GetPagedAsync` method
+- Use `SqlQueryBuilder` for dynamic query construction
+- Connection management: always use `using` statements
+- Support filtering, sorting, and full-text search
+
+### Service Layer Rules
+- Services orchestrate business logic
+- Validate input parameters
+- Map between entities and DTOs using AutoMapper
+- Return `Result<T>` with success or error
+- Handle cross-cutting concerns (logging, caching)
+- Never expose database details
+
+### Controller Rules
+- Keep controllers thin - delegate to services
+- Use appropriate HTTP status codes
+- Document with XML comments for Swagger
+- Use `[ProducesResponseType]` attributes
+- Apply consistent route naming: `api/[GroupName]/[controller]`
+- Return `IActionResult` for flexibility
+- Handle Result pattern appropriately
+
+### DTO and Validation
+- Separate Create/Update DTOs
+- Use FluentValidation for complex validation
+- Keep DTOs in Application layer
+- Use AutoMapper profiles for mapping configuration
+- Include pagination request/response DTOs
+
+### Logging Best Practices
+- Use structured logging with Serilog
+- Include correlation IDs in all logs
+- Mask sensitive data (passwords, tokens, keys)
+- Use appropriate log levels:
+  - Debug: Detailed diagnostic info
+  - Information: General flow
+  - Warning: Unexpected but handled
+  - Error: Failures requiring attention
+  - Fatal: Application crashes
+- Log performance metrics for slow operations
+
+### SQL Query Patterns
+- Always use parameterized queries
+- Use `RETURNING *` for INSERT operations in PostgreSQL
+- Include `created_at` and `updated_at` timestamps
+- Use lowercase with underscores for table/column names
+- Support case-insensitive search with `ILIKE`
+- Implement efficient pagination with OFFSET/LIMIT
+
+### Testing Approach
+- Write unit tests for services and validators
+- Integration tests for repositories and controllers
+- Use xUnit, Moq, and FluentAssertions
+- Test data builders for complex scenarios
+- Separate test projects by layer
+- Mock external dependencies
+
+### Performance Considerations
+- Use connection pooling
+- Implement caching where appropriate
+- Batch database operations when possible
+- Use `IAsyncEnumerable` for streaming large datasets
+- Profile and optimize slow queries
+- Consider using compiled queries for hot paths
+
+### Security Requirements
+- Never log sensitive data
+- Use parameterized queries (no string concatenation)
+- Validate all input
+- Implement rate limiting
+- Use CORS appropriately
+- Store secrets in configuration (never in code)
+- Apply principle of least privilege
+
+### Documentation Standards
+- XML comments on all public members
+- Include <summary>, <param>, <returns> tags
+- Document exceptions with <exception> tags
+- Generate XML documentation file for Swagger
+- Keep comments concise and meaningful
+
+### Code Organization
+- One class per file
+- Group related entities in folders
+- Keep files under 500 lines
+- Extract complex logic to separate methods
+- Use partial classes for generated code
+- Organize usings: System first, then third-party, then project
+
+### Common Patterns to Follow
+1. **Repository**: Interface in Core, implementation in Infrastructure
+2. **Service**: Interface in Application.Interfaces, implementation in Application.Services
+3. **Controller**: Thin controller delegating to service
+4. **Middleware**: Separate class implementing IMiddleware
+5. **Configuration**: Strongly-typed options pattern
+6. **Validation**: FluentValidation with dependency injection
+
+### Anti-Patterns to Avoid
+- ❌ Business logic in controllers
+- ❌ Direct database access from controllers
+- ❌ Throwing exceptions for validation
+- ❌ Hardcoded connection strings
+- ❌ Synchronous database calls
+- ❌ String concatenation for SQL
+- ❌ Returning entities from API
+- ❌ Circular dependencies
+- ❌ God classes/services
+- ❌ Magic strings/numbers
+
+## Example Code Patterns
+
+### Repository Implementation
+```csharp
+public async Task<User?> GetByIdAsync(Guid id)
+{
+    using var connection = new NpgsqlConnection(_connectionString);
+    return await connection.QueryFirstOrDefaultAsync<User>(
+        "SELECT * FROM users WHERE id = @id", 
+        new { id });
+}
+```
+
+### Service Method
+```csharp
+public async Task<Result<User>> GetByIdAsync(Guid id)
+{
+    if (id == Guid.Empty)
+        return Error.Validation("ID cannot be empty");
+    
+    var user = await _repository.GetByIdAsync(id);
+    if (user == null)
+        return Error.NotFound($"User with ID {id} not found");
+    
+    return Result<User>.Success(user);
+}
+```
+
+### Controller Action
+```csharp
+[HttpGet("{id}")]
+[ProducesResponseType(typeof(User), 200)]
+[ProducesResponseType(404)]
+public async Task<IActionResult> GetById(Guid id)
+{
+    var result = await _service.GetByIdAsync(id);
+    
+    if (result.IsFailure)
+    {
+        return result.Error!.Type switch
+        {
+            ErrorType.NotFound => NotFound(result.Error.Message),
+            _ => BadRequest(result.Error.Message)
+        };
+    }
+    
+    return Ok(result.Value);
+}
+```
+
+## File Structure Requirements
+- Maintain consistent folder structure across all layers
+- Group related functionality in subfolders
+- Use meaningful file names matching class names
+- Keep configuration files at project root
+- Organize tests to mirror source structure
+
+## When Adding New Features
+1. Start with Core layer (entities, interfaces)
+2. Implement Infrastructure (repositories)
+3. Add Application logic (services, DTOs, validators)
+4. Create WebApi endpoints (controllers)
+5. Write tests for each layer
+6. Update Swagger documentation
+7. Add appropriate logging
+8. Consider performance implications
+
+## Remember
+- Follow existing patterns in the codebase
+- Maintain consistency across all layers
+- Prioritize readability and maintainability
+- Write self-documenting code
+- Test edge cases and error scenarios
+- Consider scalability from the start

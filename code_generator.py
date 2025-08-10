@@ -120,6 +120,10 @@ class DotNetCodeGenerator:
         files[".gitignore"] = self._generate_gitignore()
         files["README.md"] = self._generate_readme(solution_name)
         
+        # Add AI assistant configuration files
+        files[".cursorrules"] = self._generate_cursorrules(solution_name)
+        files["CLAUDE.md"] = self._generate_claude_md(solution_name)
+        
         if progress_callback:
             progress_callback(100, "Generation complete!")
         
@@ -443,6 +447,15 @@ This application follows Clean Architecture principles:
 When running in development mode, Swagger UI is available at:
 `https://localhost:5001/swagger`
 
+## AI Assistant Configuration
+
+This project includes configuration files for AI coding assistants:
+
+- **`.cursorrules`**: Configuration for Cursor AI IDE with project-specific coding standards and patterns
+- **`CLAUDE.md`**: Instructions for Claude AI assistant to ensure consistent code generation
+
+These files help AI assistants understand the project structure, coding conventions, and architectural patterns to provide better code suggestions and maintain consistency across the codebase.
+
 ## Testing
 
 - Unit tests: `tests/UnitTests/`
@@ -504,3 +517,13 @@ namespace WebApi.DTOs.Common
         }
     }
 }"""
+    
+    def _generate_cursorrules(self, solution_name: str = "GeneratedApp") -> str:
+        """Generate .cursorrules file for Cursor AI"""
+        template = self.env.get_template('ai_assistants/cursorrules.txt.j2')
+        return template.render(SolutionName=solution_name)
+    
+    def _generate_claude_md(self, solution_name: str = "GeneratedApp") -> str:
+        """Generate CLAUDE.md file for Claude AI"""
+        template = self.env.get_template('ai_assistants/claude.md.j2')
+        return template.render(SolutionName=solution_name)
