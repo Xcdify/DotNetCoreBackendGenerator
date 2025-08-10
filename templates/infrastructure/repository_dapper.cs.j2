@@ -50,7 +50,7 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             {
                 var searchClauses = new List<string>();
                 {% for col in Columns %}
-                {% if col.DataType in ['text', 'varchar', 'character varying', 'char', 'character'] %}
+                {% if col.CSharpType == 'string' %}
                 searchClauses.Add("{{ col.NameSnake }}::text ILIKE @searchTerm");
                 {% endif %}
                 {% endfor %}
@@ -121,7 +121,7 @@ namespace Infrastructure.Data{{ GroupNamespace }}
             var sql = @"INSERT INTO {{ TableNameSnake }} 
                 ({% for col in NonPrimaryColumns %}{{ col.NameSnake }}{% if not loop.last %}, {% endif %}{% endfor %})
                 VALUES
-                ({% for col in NonPrimaryColumns %}@{{ col.NamePascal }}{% if not loop.last %}, {% endif %}{% endfor %})
+                ({% for col in NonPrimaryColumns %}{% if col.NameSnake == 'created_at' or col.NameSnake == 'updated_at' %}NOW(){% else %}@{{ col.NamePascal }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %})
                 RETURNING *";
             
             var createdEntity = await connection.QuerySingleAsync<{{ TableNamePascal }}>(sql, entity);
@@ -132,8 +132,16 @@ namespace Infrastructure.Data{{ GroupNamespace }}
         {
             using var connection = new NpgsqlConnection(_connectionString);
             var sql = @"UPDATE {{ TableNameSnake }} SET
-                {% for col in NonPrimaryColumns %}{{ col.NameSnake }} = @{{ col.NamePascal }}{% if not loop.last %},
-                {% endif %}{% endfor %}
+                {% set ns = namespace(items=[], has_updated_at=false) %}
+                {% for col in NonPrimaryColumns %}
+                {% if col.NameSnake == 'updated_at' %}
+                {% set ns.has_updated_at = true %}
+                {% elif col.NameSnake != 'created_at' %}
+                {% set _ = ns.items.append(col.NameSnake ~ ' = @' ~ col.NamePascal) %}
+                {% endif %}
+                {% endfor %}
+                {% if ns.has_updated_at %}{% set _ = ns.items.append('updated_at = NOW()') %}{% endif %}
+                {{ ns.items | join(',\n                ') }}
                 WHERE {{ PrimaryKey.NameSnake }} = @{{ PrimaryKey.NamePascal }}";
             await connection.ExecuteAsync(sql, entity);
         }
