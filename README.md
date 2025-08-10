@@ -53,18 +53,20 @@ The application will start at `http://localhost:8501`
 
 ## How to Use
 
-1. **Enter PostgreSQL Connection String**:
+1. **Enter PostgreSQL Connection String and give API name**:
    ```
    postgresql://username:password@host:port/database
    ```
 
 2. **Review Schema**: The app will display all detected tables and columns
 
-3. **Preview Code**: See sample generated entity and repository code
+3. **Group Code by Functionality**: Select tables and group them by folders.
+   
+4. **Preview Folder/Code structure**: See sample generated folder/file structure
 
-4. **Generate Application**: Click "Generate Application" to create the complete .NET Core project
+5. **Generate Application**: Click "Generate Application" to create the complete .NET Core project
 
-5. **Download**: Download as ZIP or save to specified folder
+6. **Download**: Scroll to the bottom and Download as ZIP or save to specified folder
 
 ## Generated Project Structure
 
