@@ -7,8 +7,8 @@ class DotNetCodeGenerator:
     def __init__(self):
         self.env = Environment(
             loader=FileSystemLoader('templates'),
-            trim_blocks=True,
-            lstrip_blocks=True,
+            trim_blocks=False,
+            lstrip_blocks=False,
             keep_trailing_newline=True
         )
     

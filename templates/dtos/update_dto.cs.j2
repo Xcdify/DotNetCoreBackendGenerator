@@ -14,7 +14,7 @@ namespace Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }}
         public {{ PrimaryKey.CSharpType }} {{ PrimaryKey.NamePascal }} { get; set; }
 
 {% for col in NonPrimaryColumns -%}
-{% if col.CSharpType == 'string' and not col.IsNullable -%}
+{%- if col.CSharpType == 'string' and not col.IsNullable -%}
         /// <summary>
         /// {{ col.NamePascal }}
         /// </summary>
@@ -22,14 +22,14 @@ namespace Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }}
         [StringLength(255, ErrorMessage = "{{ col.NamePascal }} cannot exceed 255 characters")]
         public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; } = string.Empty;
 
-{% elif col.CSharpType == 'string' -%}
+{%- elif col.CSharpType == 'string' -%}
         /// <summary>
         /// {{ col.NamePascal }}
         /// </summary>
         [StringLength(255, ErrorMessage = "{{ col.NamePascal }} cannot exceed 255 characters")]
         public string? {{ col.NamePascal }} { get; set; }
 
-{% elif not col.IsNullable and col.CSharpType in ['int', 'long', 'decimal', 'double'] -%}
+{%- elif not col.IsNullable and col.CSharpType in ['int', 'long', 'decimal', 'double'] -%}
         /// <summary>
         /// {{ col.NamePascal }}
         /// </summary>
@@ -37,20 +37,20 @@ namespace Application.DTOs{{ GroupNamespace }}.{{ TableNamePascal }}
         [Range(1, {{ 'long' if col.CSharpType == 'long' else 'int' }}.MaxValue, ErrorMessage = "{{ col.NamePascal }} must be greater than 0")]
         public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
 
-{% elif col.CSharpType == 'DateTime' and not col.IsNullable -%}
+{%- elif col.CSharpType == 'DateTime' and not col.IsNullable -%}
         /// <summary>
         /// {{ col.NamePascal }}
         /// </summary>
         [Required(ErrorMessage = "{{ col.NamePascal }} is required")]
         public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
 
-{% else -%}
+{%- else -%}
         /// <summary>
         /// {{ col.NamePascal }}
         /// </summary>
         public {{ col.CSharpType }} {{ col.NamePascal }} { get; set; }
 
-{% endif -%}
+{%- endif %}
 {% endfor -%}
     }
 }
