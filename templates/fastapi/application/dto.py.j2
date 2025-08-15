@@ -1,0 +1,45 @@
+"""
+Data Transfer Objects for {{ TableNamePascal }}
+
+This module defines DTOs for the application service layer.
+"""
+from dataclasses import dataclass
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+
+
+@dataclass
+class Create{{ TableNamePascal }}Dto:
+    """DTO for creating a {{ TableNamePascal }}."""
+    # Required fields first (no defaults)
+    {% for col in NonPrimaryColumns %}
+    {% if not col.IsNullable and col.NameSnake not in ['created_at', 'updated_at'] %}
+    {{ col.NameSnake }}: {{ col.PythonType }}
+    {% endif %}
+    {% endfor %}
+    # Optional fields (with defaults)  
+    {% for col in NonPrimaryColumns %}
+    {% if col.IsNullable and col.NameSnake not in ['created_at', 'updated_at'] %}
+    {% if col.PythonType.startswith('Optional[') %}
+    {{ col.NameSnake }}: {{ col.PythonType }} = None
+    {% else %}
+    {{ col.NameSnake }}: Optional[{{ col.PythonType }}] = None
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+
+
+@dataclass
+class Update{{ TableNamePascal }}Dto:
+    """DTO for updating a {{ TableNamePascal }}."""
+    {% for col in NonPrimaryColumns %}
+    {% if col.NameSnake not in ['created_at', 'updated_at'] %}
+    {% if col.PythonType.startswith('Optional[') %}
+    {{ col.NameSnake }}: {{ col.PythonType }} = None
+    {% else %}
+    {{ col.NameSnake }}: Optional[{{ col.PythonType }}] = None
+    {% endif %}
+    {% endif %}
+    {% endfor %}

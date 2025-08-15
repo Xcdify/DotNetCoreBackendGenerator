@@ -1,0 +1,139 @@
+"""
+Pydantic Schemas for {{ TableNamePascal }}
+
+This module defines the request/response schemas for the API.
+"""
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from typing import Optional, List
+from uuid import UUID
+
+from pydantic import BaseModel, Field, ConfigDict, field_validator, EmailStr
+import bleach
+
+
+class {{ TableNamePascal }}Base(BaseModel):
+    """Base schema for {{ TableNamePascal }}."""
+    {% for col in NonPrimaryColumns %}
+    {% if col.NameSnake not in ['created_at', 'updated_at', 'password_hash'] %}
+    {% set clean_type = col.PythonType.replace('Optional[', '').replace(']', '') %}
+    {% if 'email' in col.NameSnake.lower() and clean_type == 'str' %}
+    {% if col.IsNullable %}
+    {{ col.NameSnake }}: Optional[EmailStr] = Field(None, description="{{ col.NamePascal }} (email address)")
+    {% else %}
+    {{ col.NameSnake }}: EmailStr = Field(..., description="{{ col.NamePascal }} (email address)")
+    {% endif %}
+    {% elif col.IsNullable %}
+    {{ col.NameSnake }}: Optional[{{ clean_type }}] = Field(None, description="{{ col.NamePascal }}")
+    {% else %}
+    {{ col.NameSnake }}: {{ clean_type }} = Field(..., description="{{ col.NamePascal }}")
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+    {% for col in NonPrimaryColumns %}
+    {% if col.NameSnake not in ['created_at', 'updated_at', 'password_hash', 'password', 'token', 'secret'] %}
+    {% set clean_type = col.PythonType.replace('Optional[', '').replace(']', '') %}
+    {% if clean_type == 'str' and 'email' not in col.NameSnake.lower() %}
+    @field_validator('{{ col.NameSnake }}')
+    @classmethod
+    def sanitize_{{ col.NameSnake }}(cls, v: Optional[str]) -> Optional[str]:
+        """Sanitize {{ col.NameSnake }} field to prevent XSS."""
+        if v:
+            return bleach.clean(v, tags=[], strip=True).strip()
+        return v
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+
+
+class Create{{ TableNamePascal }}Request({{ TableNamePascal }}Base):
+    """Request schema for creating a {{ TableNamePascal }}."""
+    {% for col in NonPrimaryColumns %}
+    {% if not col.IsNullable and col.NameSnake not in ['created_at', 'updated_at', 'password_hash'] %}
+    {% set clean_type = col.PythonType.replace('Optional[', '').replace(']', '') %}
+    {% if 'email' in col.NameSnake.lower() and clean_type == 'str' %}
+    {{ col.NameSnake }}: EmailStr = Field(..., description="{{ col.NamePascal }} (required email address)")
+    {% else %}
+    {{ col.NameSnake }}: {{ clean_type }} = Field(..., description="{{ col.NamePascal }} (required)")
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+    
+    # For password handling, accept plaintext password and hash server-side
+    {% if NonPrimaryColumns|selectattr("NameSnake", "equalto", "password_hash")|list|length > 0 %}
+    password: str = Field(..., description="User password (will be hashed server-side)", min_length=8)
+    {% endif %}
+    
+    def to_dto(self):
+        """Convert to DTO."""
+        from application.dto{{ GroupNamespace }}.{{ TableNameSnake }}_dto import Create{{ TableNamePascal }}Dto
+        return Create{{ TableNamePascal }}Dto(**self.model_dump())
+
+
+class Update{{ TableNamePascal }}Request(BaseModel):
+    """Request schema for updating a {{ TableNamePascal }}."""
+    {% for col in NonPrimaryColumns %}
+    {% if col.NameSnake not in ['created_at', 'updated_at'] %}
+    {% set clean_type = col.PythonType.replace('Optional[', '').replace(']', '') %}
+    {{ col.NameSnake }}: Optional[{{ clean_type }}] = Field(None, description="{{ col.NamePascal }} (optional)")
+    {% endif %}
+    {% endfor %}
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+    {% for col in NonPrimaryColumns %}
+    {% if col.NameSnake not in ['created_at', 'updated_at', 'password_hash', 'password', 'token', 'secret'] %}
+    {% set clean_type = col.PythonType.replace('Optional[', '').replace(']', '') %}
+    {% if clean_type == 'str' and 'email' not in col.NameSnake.lower() %}
+    @field_validator('{{ col.NameSnake }}')
+    @classmethod
+    def sanitize_{{ col.NameSnake }}(cls, v: Optional[str]) -> Optional[str]:
+        """Sanitize {{ col.NameSnake }} field to prevent XSS."""
+        if v:
+            return bleach.clean(v, tags=[], strip=True).strip()
+        return v
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+    
+    def to_dto(self):
+        """Convert to DTO."""
+        from application.dto{{ GroupNamespace }}.{{ TableNameSnake }}_dto import Update{{ TableNamePascal }}Dto
+        return Update{{ TableNamePascal }}Dto(**self.model_dump(exclude_unset=True))
+
+
+class {{ TableNamePascal }}Response({{ TableNamePascal }}Base):
+    """Response schema for {{ TableNamePascal }}."""
+    {{ PrimaryKey.NameSnake }}: {{ PrimaryKey.PythonType }} = Field(..., description="{{ PrimaryKey.NamePascal }}")
+    {% set has_created_at = Columns|selectattr("NameSnake", "equalto", "created_at")|list|length > 0 %}
+    {% set has_updated_at = Columns|selectattr("NameSnake", "equalto", "updated_at")|list|length > 0 %}
+    {% if has_created_at %}
+    # created_at included from table columns
+    {% else %}
+    created_at: datetime = Field(..., description="Creation timestamp")
+    {% endif %}
+    {% if has_updated_at %}
+    # updated_at included from table columns
+    {% else %}
+    updated_at: datetime = Field(..., description="Last update timestamp")
+    {% endif %}
+    
+    @classmethod
+    def from_entity(cls, entity):
+        """Create from domain entity."""
+        return cls(
+            {% for col in Columns %}
+            {{ col.NameSnake }}=entity.{{ col.NameSnake }},
+            {% endfor %}
+        )
+
+
+class {{ TableNamePascal }}ListResponse(BaseModel):
+    """Response schema for list of {{ TableNamePascal }}."""
+    items: List[{{ TableNamePascal }}Response] = Field(..., description="List of {{ TableNamePascal }} items")
+    total: int = Field(..., description="Total number of items")
+    
+    model_config = ConfigDict(from_attributes=True)

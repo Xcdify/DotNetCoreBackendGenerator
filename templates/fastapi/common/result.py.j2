@@ -1,0 +1,158 @@
+"""
+Result Pattern Implementation
+
+This module implements the Result pattern for error handling.
+"""
+from typing import Generic, TypeVar, Optional, Union
+from dataclasses import dataclass
+from enum import Enum
+
+
+T = TypeVar('T')
+
+
+class ErrorType(Enum):
+    """Error types enumeration."""
+    VALIDATION = "VALIDATION"
+    NOT_FOUND = "NOT_FOUND"
+    CONFLICT = "CONFLICT"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
+    INTERNAL = "INTERNAL"
+
+
+@dataclass
+class ErrorDetail:
+    """Error detail information."""
+    type: ErrorType
+    message: str
+    code: Optional[str] = None
+    details: Optional[dict] = None
+
+
+@dataclass
+class Success(Generic[T]):
+    """Success result."""
+    value: T
+    
+    @property
+    def is_success(self) -> bool:
+        return True
+    
+    @property
+    def is_failure(self) -> bool:
+        return False
+    
+    @property
+    def error(self) -> Optional[ErrorDetail]:
+        return None
+
+
+@dataclass
+class Failure:
+    """Failure result."""
+    error: ErrorDetail
+    
+    @property
+    def is_success(self) -> bool:
+        return False
+    
+    @property
+    def is_failure(self) -> bool:
+        return True
+    
+    @property
+    def value(self) -> None:
+        return None
+
+
+# Result type - use Union for proper type annotations
+from typing import Protocol
+
+class ResultProtocol(Protocol, Generic[T]):
+    """Protocol for Result types."""
+    @property
+    def is_success(self) -> bool: ...
+    @property
+    def is_failure(self) -> bool: ...
+    @property
+    def value(self) -> Optional[T]: ...
+    @property
+    def error(self) -> Optional[ErrorDetail]: ...
+
+# Result type alias
+Result = Union[Success[T], Failure]
+
+class ResultBuilder:
+    """Builder for creating Result instances."""
+    
+    @staticmethod
+    def success(value: T) -> Success[T]:
+        """Create a success result."""
+        return Success(value)
+    
+    @staticmethod
+    def failure(error: ErrorDetail) -> Failure:
+        """Create a failure result."""
+        return Failure(error)
+
+
+class Error:
+    """Error factory for common error types."""
+    
+    @staticmethod
+    def validation(message: str, code: Optional[str] = None, details: Optional[dict] = None) -> Failure:
+        """Create a validation error."""
+        return Failure(ErrorDetail(
+            type=ErrorType.VALIDATION,
+            message=message,
+            code=code,
+            details=details
+        ))
+    
+    @staticmethod
+    def not_found(message: str, code: Optional[str] = None) -> Failure:
+        """Create a not found error."""
+        return Failure(ErrorDetail(
+            type=ErrorType.NOT_FOUND,
+            message=message,
+            code=code
+        ))
+    
+    @staticmethod
+    def conflict(message: str, code: Optional[str] = None) -> Failure:
+        """Create a conflict error."""
+        return Failure(ErrorDetail(
+            type=ErrorType.CONFLICT,
+            message=message,
+            code=code
+        ))
+    
+    @staticmethod
+    def unauthorized(message: str = "Unauthorized", code: Optional[str] = None) -> Failure:
+        """Create an unauthorized error."""
+        return Failure(ErrorDetail(
+            type=ErrorType.UNAUTHORIZED,
+            message=message,
+            code=code
+        ))
+    
+    @staticmethod
+    def forbidden(message: str = "Forbidden", code: Optional[str] = None) -> Failure:
+        """Create a forbidden error."""
+        return Failure(ErrorDetail(
+            type=ErrorType.FORBIDDEN,
+            message=message,
+            code=code
+        ))
+    
+    @staticmethod
+    def internal(message: str, code: Optional[str] = None) -> Failure:
+        """Create an internal error."""
+        return Failure(ErrorDetail(
+            type=ErrorType.INTERNAL,
+            message=message,
+            code=code
+        ))
+
+

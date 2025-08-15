@@ -2,6 +2,7 @@ from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Callable
 from utils import pascal_case, snake_case, camel_case, map_postgres_to_csharp, get_primary_key_type, normalize_connection_string
+from fastapi_generator import FastAPICodeGenerator
 
 class DotNetCodeGenerator:
     def __init__(self):
@@ -527,3 +528,21 @@ namespace WebApi.DTOs.Common
         """Generate CLAUDE.md file for Claude AI"""
         template = self.env.get_template('ai_assistants/claude.md.j2')
         return template.render(SolutionName=solution_name)
+
+
+def create_code_generator(framework: str):
+    """
+    Factory function to create appropriate code generator based on framework.
+    
+    Args:
+        framework: Either 'dotnet' or 'fastapi'
+        
+    Returns:
+        Code generator instance
+    """
+    if framework.lower() == 'fastapi':
+        return FastAPICodeGenerator()
+    elif framework.lower() == 'dotnet':
+        return DotNetCodeGenerator()
+    else:
+        raise ValueError(f"Unsupported framework: {framework}. Choose 'dotnet' or 'fastapi'.")

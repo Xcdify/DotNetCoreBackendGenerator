@@ -1,0 +1,80 @@
+"""
+Unit of Work Pattern Implementation
+
+This module implements the Unit of Work pattern for transaction management.
+"""
+from typing import Optional
+from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from infrastructure.database.session import AsyncSessionLocal
+{% for table in Tables %}
+from infrastructure.database.repositories{{ table.GroupNamespace }}.{{ table.TableNameSnake }}_repository import {{ table.TableNamePascal }}Repository
+{% endfor %}
+
+
+class UnitOfWork:
+    """Unit of Work for managing database transactions."""
+    
+    def __init__(self, session: Optional[AsyncSession] = None):
+        """
+        Initialize the Unit of Work.
+        
+        Args:
+            session: Optional existing session to use
+        """
+        self._session = session
+        self._is_external_session = session is not None
+        
+        # Repository instances
+        {% for table in Tables %}
+        self._{{ table.TableNameSnake }}_repository: Optional[{{ table.TableNamePascal }}Repository] = None
+        {% endfor %}
+    
+    async def __aenter__(self):
+        """Enter the context manager."""
+        if not self._is_external_session:
+            self._session = AsyncSessionLocal()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit the context manager."""
+        if not self._is_external_session:
+            if exc_type:
+                await self.rollback()
+            else:
+                await self.commit()
+            await self._session.close()
+    
+    async def commit(self):
+        """Commit the transaction."""
+        if self._session:
+            await self._session.commit()
+    
+    async def rollback(self):
+        """Rollback the transaction."""
+        if self._session:
+            await self._session.rollback()
+    
+    {% for table in Tables %}
+    @property
+    def {{ table.TableNameSnake }}_repository(self) -> {{ table.TableNamePascal }}Repository:
+        """Get {{ table.TableNamePascal }} repository."""
+        if not self._{{ table.TableNameSnake }}_repository:
+            self._{{ table.TableNameSnake }}_repository = {{ table.TableNamePascal }}Repository(self._session)
+        return self._{{ table.TableNameSnake }}_repository
+    
+    {% endfor %}
+
+
+@asynccontextmanager
+async def get_unit_of_work():
+    """
+    Get Unit of Work as context manager.
+    
+    Yields:
+        The Unit of Work instance
+    """
+    async with UnitOfWork() as uow:
+        yield uow

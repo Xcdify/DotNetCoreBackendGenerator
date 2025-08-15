@@ -9,63 +9,104 @@ import os
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from database_reader import DatabaseSchemaReader
-from code_generator import DotNetCodeGenerator
+from code_generator import create_code_generator
 from utils import pascal_case, snake_case
 
 # Load environment variables
 load_dotenv()
 
 st.set_page_config(
-    page_title=".NET Core App Generator",
+    page_title="Backend Code Generator",
     page_icon="🚀",
     layout="wide"
 )
 
-def generate_folder_structure_preview(groups):
+def generate_folder_structure_preview(groups, framework="dotnet"):
     """Generate a preview of the folder structure"""
     preview = "📁 Generated Project Structure:\n\n"
-    preview += "src/\n"
     
-    # Core layer
-    preview += "├── Core/\n"
-    preview += "│   ├── Entities/\n"
-    for group in groups:
-        preview += f"│   │   ├── {group}/\n"
-        for table in groups[group][:2]:  # Show first 2 tables
-            preview += f"│   │   │   ├── {pascal_case(table)}.cs\n"
-        if len(groups[group]) > 2:
-            preview += f"│   │   │   └── ... ({len(groups[group]) - 2} more)\n"
-    
-    preview += "│   └── Interfaces/\n"
-    for group in groups:
-        preview += f"│       ├── {group}/\n"
-    
-    # Application layer
-    preview += "├── Application/\n"
-    preview += "│   ├── Interfaces/\n"
-    for group in groups:
-        preview += f"│   │   ├── {group}/\n"
-    preview += "│   └── Services/\n"
-    for group in groups:
-        preview += f"│       ├── {group}/\n"
-    
-    # Infrastructure layer
-    preview += "├── Infrastructure/\n"
-    preview += "│   └── Data/\n"
-    for group in groups:
-        preview += f"│       ├── {group}/\n"
-    
-    # WebApi layer
-    preview += "└── WebApi/\n"
-    preview += "    └── Controllers/\n"
-    for group in groups:
-        preview += f"        ├── {group}/\n"
+    if framework.lower() == "fastapi":
+        preview += "src/\n"
+        
+        # Core layer
+        preview += "├── core/\n"
+        preview += "│   ├── entities/\n"
+        for group in groups:
+            if group != 'General':
+                preview += f"│   │   ├── {group.lower()}/\n"
+            for table in groups[group][:2]:  # Show first 2 tables
+                prefix = f"│   │   {'│   ' if group != 'General' else ''}├── "
+                preview += f"{prefix}{snake_case(table)}.py\n"
+            if len(groups[group]) > 2:
+                prefix = f"│   │   {'│   ' if group != 'General' else ''}└── "
+                preview += f"{prefix}... ({len(groups[group]) - 2} more)\n"
+        
+        preview += "│   ├── interfaces/\n"
+        preview += "│   └── exceptions/\n"
+        
+        # Infrastructure layer
+        preview += "├── infrastructure/\n"
+        preview += "│   └── database/\n"
+        preview += "│       ├── models/\n"
+        preview += "│       └── repositories/\n"
+        
+        # Application layer
+        preview += "├── application/\n"
+        preview += "│   ├── dto/\n"
+        preview += "│   └── services/\n"
+        
+        # API layer
+        preview += "├── api/\n"
+        preview += "│   ├── v1/routers/\n"
+        preview += "│   └── schemas/\n"
+        
+        # Config and common
+        preview += "├── config/\n"
+        preview += "└── common/\n"
+        
+    else:  # .NET Core
+        preview += "src/\n"
+        
+        # Core layer
+        preview += "├── Core/\n"
+        preview += "│   ├── Entities/\n"
+        for group in groups:
+            preview += f"│   │   ├── {group}/\n"
+            for table in groups[group][:2]:  # Show first 2 tables
+                preview += f"│   │   │   ├── {pascal_case(table)}.cs\n"
+            if len(groups[group]) > 2:
+                preview += f"│   │   │   └── ... ({len(groups[group]) - 2} more)\n"
+        
+        preview += "│   └── Interfaces/\n"
+        for group in groups:
+            preview += f"│       ├── {group}/\n"
+        
+        # Application layer
+        preview += "├── Application/\n"
+        preview += "│   ├── Interfaces/\n"
+        for group in groups:
+            preview += f"│   │   ├── {group}/\n"
+        preview += "│   └── Services/\n"
+        for group in groups:
+            preview += f"│       ├── {group}/\n"
+        
+        # Infrastructure layer
+        preview += "├── Infrastructure/\n"
+        preview += "│   └── Data/\n"
+        for group in groups:
+            preview += f"│       ├── {group}/\n"
+        
+        # WebApi layer
+        preview += "└── WebApi/\n"
+        preview += "    └── Controllers/\n"
+        for group in groups:
+            preview += f"        ├── {group}/\n"
     
     return preview
 
 def main():
-    st.title("🚀 .NET Core App Generator")
-    st.markdown("Generate a Clean Architecture .NET Core 9 application from your PostgreSQL database schema")
+    st.title("🚀 Backend Code Generator")
+    st.markdown("Generate Clean Architecture backend applications from your PostgreSQL database schema")
     
     # Get default connection string from environment
     default_conn_str = os.getenv('POSTGRES_CONNECTION_STRING', '')
@@ -83,6 +124,17 @@ def main():
     
     with st.sidebar:
         st.header("Configuration")
+        
+        # Framework selection
+        framework = st.selectbox(
+            "🎯 Target Framework",
+            options=["dotnet", "fastapi"],
+            format_func=lambda x: {
+                "dotnet": "🟣 .NET Core (C#)",
+                "fastapi": "🐍 FastAPI (Python)"
+            }[x],
+            help="Choose your target backend framework"
+        )
         
         connection_string = st.text_input(
             "PostgreSQL Connection String",
@@ -293,11 +345,16 @@ def main():
                     all_groups['General'] = ungrouped_tables
                 
                 # Show folder structure preview
-                st.code(generate_folder_structure_preview(all_groups), language="text")
+                st.code(generate_folder_structure_preview(all_groups, framework), language="text")
             
             if generate_button:
-                with st.spinner("Generating .NET Core application..."):
-                    generator = DotNetCodeGenerator()
+                framework_name = {
+                    'dotnet': '.NET Core',
+                    'fastapi': 'FastAPI'
+                }[framework]
+                
+                with st.spinner(f"Generating {framework_name} application..."):
+                    generator = create_code_generator(framework)
                     
                     # Prepare groups with ungrouped tables
                     all_groups = dict(st.session_state.table_groups) if 'table_groups' in st.session_state else {}
@@ -329,14 +386,15 @@ def main():
                     progress_bar.progress(100)
                     status_text.text("✅ Generation complete!")
                 
-                st.success("🎉 Application generated successfully!")
+                st.success(f"🎉 {framework_name} application generated successfully!")
                 
                 col1, col2 = st.columns(2)
                 with col1:
+                    file_extension = "py" if framework == "fastapi" else "cs"
                     st.download_button(
                         label="📦 Download as ZIP",
                         data=zip_buffer.getvalue(),
-                        file_name="generated-dotnet-app.zip",
+                        file_name=f"generated-{framework}-app.zip",
                         mime="application/zip"
                     )
                 
@@ -345,7 +403,11 @@ def main():
                         save_to_folder(files, output_folder)
                         st.success(f"Saved to {output_folder}")
                 
-                st.info("**Next Steps:**\n1. Extract the ZIP file\n2. Update appsettings.json with your connection string\n3. Run `dotnet restore`\n4. Run `dotnet build`\n5. Run `dotnet run`")
+                # Framework-specific next steps
+                if framework == "fastapi":
+                    st.info("**Next Steps:**\n1. Extract the ZIP file\n2. Copy `.env.example` to `.env` and configure\n3. Run `uv sync` to install dependencies\n4. Run `uv run alembic upgrade head` for database migrations\n5. Run `uv run uvicorn src.api.main:app --reload`")
+                else:
+                    st.info("**Next Steps:**\n1. Extract the ZIP file\n2. Update appsettings.json with your connection string\n3. Run `dotnet restore`\n4. Run `dotnet build`\n5. Run `dotnet run`")
         
         except psycopg2.Error as e:
             st.error(f"❌ Database connection failed: {str(e)}")

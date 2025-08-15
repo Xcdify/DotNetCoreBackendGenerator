@@ -1,0 +1,63 @@
+"""
+{{ TableNamePascal }} Entity
+
+This module defines the {{ TableNamePascal }} domain entity.
+"""
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID, uuid4
+from dataclasses import dataclass, field
+
+
+@dataclass
+class {{ TableNamePascal }}:
+    """{{ TableNamePascal }} domain entity."""
+    # Required fields first (no defaults)
+    {% for col in Columns %}
+    {% if not col.IsPrimaryKey and not col.PythonType.startswith('Optional') %}
+    {{ col.NameSnake }}: {{ col.PythonType }}
+    {% endif %}
+    {% endfor %}
+    # Optional fields (with defaults)
+    {% for col in Columns %}
+    {% if col.PythonType.startswith('Optional') %}
+    {{ col.NameSnake }}: {{ col.PythonType }} = None
+    {% endif %}
+    {% endfor %}
+    # Primary key and timestamp fields (with defaults)
+    {% for col in Columns %}
+    {% if col.IsPrimaryKey %}
+    {{ col.NameSnake }}: {{ col.PythonType }} = field(default_factory=uuid4)
+    {% endif %}
+    {% endfor %}
+    {% set has_created_at = Columns|selectattr("NameSnake", "equalto", "created_at")|list|length > 0 %}
+    {% set has_updated_at = Columns|selectattr("NameSnake", "equalto", "updated_at")|list|length > 0 %}
+    {% if not has_created_at %}
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    {% endif %}
+    {% if not has_updated_at %}
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+    {% endif %}
+
+    def update_timestamp(self) -> None:
+        """Update the updated_at timestamp."""
+        self.updated_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        """Convert entity to dictionary."""
+        result = {}
+        {% for col in Columns %}
+        {% if col.NameSnake in ['created_at', 'updated_at'] %}
+        result['{{ col.NameSnake }}'] = self.{{ col.NameSnake }}.isoformat() if hasattr(self.{{ col.NameSnake }}, 'isoformat') else self.{{ col.NameSnake }}
+        {% else %}
+        result['{{ col.NameSnake }}'] = str(self.{{ col.NameSnake }}) if isinstance(self.{{ col.NameSnake }}, UUID) else self.{{ col.NameSnake }}
+        {% endif %}
+        {% endfor %}
+        {% if not has_created_at %}
+        result['created_at'] = self.created_at.isoformat()
+        {% endif %}
+        {% if not has_updated_at %}
+        result['updated_at'] = self.updated_at.isoformat()
+        {% endif %}
+        return result

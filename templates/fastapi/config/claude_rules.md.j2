@@ -1,0 +1,434 @@
+# Claude AI Assistant Instructions - FastAPI Clean Architecture
+
+## Project Overview
+You are working with a FastAPI project that follows Clean Architecture principles. The project uses SQLAlchemy 2.0 with async support, PostgreSQL as the database, and implements comprehensive patterns for enterprise-grade applications.
+
+## Your Role
+As an AI assistant, you must ensure all code you generate or modify adheres to the established architecture patterns, coding standards, and best practices defined in this project. Your code should be production-ready, secure, and maintainable.
+
+## Critical Architecture Rules
+
+### Layer Dependencies (NEVER VIOLATE)
+```
+API → Application → Core ← Infrastructure → Core
+```
+- Core has NO dependencies (pure business logic)
+- Infrastructure depends ONLY on Core
+- Application depends ONLY on Core
+- API depends on Application and Infrastructure (for DI only)
+
+### Project Structure You Must Follow
+```
+{{ SolutionName | lower }}/
+├── src/
+│   ├── core/                    # Domain layer (no dependencies)
+│   │   ├── entities/            # Domain models
+│   │   ├── interfaces/          # Repository contracts
+│   │   └── exceptions/          # Domain exceptions
+│   │
+│   ├── infrastructure/          # Data access layer
+│   │   ├── database/           # Repository implementations & models
+│   │   └── services/           # External services
+│   │
+│   ├── application/            # Business logic layer
+│   │   ├── services/           # Application services
+│   │   └── dto/               # Data transfer objects
+│   │
+│   ├── api/                    # Presentation layer
+│   │   ├── v1/routers/        # API endpoints
+│   │   ├── schemas/           # Pydantic models
+│   │   ├── middleware/        # Custom middleware
+│   │   └── dependencies/      # Dependency injection
+│   │
+│   ├── common/                 # Shared utilities
+│   └── config/                 # Configuration
+│
+└── tests/
+    ├── unit/
+    ├── integration/
+    └── e2e/
+```
+
+## Mandatory Coding Patterns
+
+### 1. Entity Pattern (Core Layer)
+```python
+from datetime import datetime
+from uuid import UUID
+
+class {{ TableNamePascal }}:
+    """Domain entity for {{ TableNamePascal }}."""
+    
+    def __init__(
+        self,
+        id: UUID,
+        name: str,
+        description: str | None = None,
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None
+    ):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.created_at = created_at
+        self.updated_at = updated_at
+```
+
+### 2. Repository Interface Pattern (Core Layer)
+```python
+from abc import ABC, abstractmethod
+from typing import Optional, Dict, Any
+from uuid import UUID
+
+class I{{ TableNamePascal }}Repository(ABC):
+    """Repository interface for {{ TableNamePascal }}."""
+    
+    @abstractmethod
+    async def get_by_id(self, id: UUID) -> Optional[{{ TableNamePascal }}]:
+        """Get entity by ID."""
+        pass
+    
+    @abstractmethod
+    async def get_all(self, skip: int = 0, limit: int = 100) -> list[{{ TableNamePascal }}]:
+        """Get all entities."""
+        pass
+    
+    @abstractmethod
+    async def get_paginated(
+        self,
+        page: int,
+        size: int,
+        search_term: str | None = None,
+        filters: Dict[str, Any] | None = None,
+        sort_by: str | None = None,
+        sort_descending: bool = False
+    ) -> tuple[list[{{ TableNamePascal }}], int]:
+        """Get paginated entities."""
+        pass
+    
+    @abstractmethod
+    async def create(self, entity: {{ TableNamePascal }}) -> {{ TableNamePascal }}:
+        """Create entity."""
+        pass
+    
+    @abstractmethod
+    async def update(self, entity: {{ TableNamePascal }}) -> {{ TableNamePascal }}:
+        """Update entity."""
+        pass
+    
+    @abstractmethod
+    async def delete(self, id: UUID) -> bool:
+        """Delete entity."""
+        pass
+```
+
+### 3. SQLAlchemy Model Pattern (Infrastructure Layer)
+```python
+from datetime import datetime
+from uuid import uuid4
+from uuid import UUID as PyUUID
+
+from sqlalchemy import Column, String, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.sql import func
+
+from infrastructure.database.base import Base
+
+class {{ TableNamePascal }}Model(Base):
+    """SQLAlchemy model for {{ TableNamePascal }}."""
+    
+    __tablename__ = "{{ TableName }}"
+    
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.timezone('UTC', func.now()), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.timezone('UTC', func.now()), server_default=func.timezone('UTC', func.now()), nullable=False)
+    
+    def to_entity(self) -> {{ TableNamePascal }}:
+        """Convert to domain entity."""
+        return {{ TableNamePascal }}(
+            id=self.id,
+            name=self.name,
+            description=self.description,
+            created_at=self.created_at,
+            updated_at=self.updated_at
+        )
+    
+    @classmethod
+    def from_entity(cls, entity: {{ TableNamePascal }}) -> "{{ TableNamePascal }}Model":
+        """Create from domain entity."""
+        return cls(
+            id=entity.id,
+            name=entity.name,
+            description=entity.description,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at
+        )
+    
+    def update_from_entity(self, entity: {{ TableNamePascal }}) -> None:
+        """Update from domain entity."""
+        self.name = entity.name
+        self.description = entity.description
+        # updated_at handled by onupdate
+```
+
+### 4. Repository Implementation Pattern (Infrastructure Layer)
+```python
+from typing import Optional, Dict, Any
+from uuid import UUID
+from sqlalchemy import select, func, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+class {{ TableNamePascal }}Repository(I{{ TableNamePascal }}Repository):
+    """Repository implementation for {{ TableNamePascal }}."""
+    
+    def __init__(self, session: AsyncSession):
+        self.session = session
+    
+    async def get_by_id(self, id: UUID) -> Optional[{{ TableNamePascal }}]:
+        """Get entity by ID."""
+        result = await self.session.execute(
+            select({{ TableNamePascal }}Model).where({{ TableNamePascal }}Model.id == id)
+        )
+        model = result.scalar_one_or_none()
+        return model.to_entity() if model else None
+    
+    async def create(self, entity: {{ TableNamePascal }}) -> {{ TableNamePascal }}:
+        """Create entity."""
+        model = {{ TableNamePascal }}Model.from_entity(entity)
+        self.session.add(model)
+        await self.session.flush()
+        await self.session.refresh(model)
+        return model.to_entity()
+```
+
+### 5. Service Pattern (Application Layer)
+```python
+from typing import Optional
+from uuid import UUID
+from common.result import Result, Error
+
+class {{ TableNamePascal }}Service:
+    """Service for {{ TableNamePascal }} operations."""
+    
+    def __init__(self, repository: I{{ TableNamePascal }}Repository):
+        self.repository = repository
+    
+    async def get_by_id(self, id: UUID) -> Result[{{ TableNamePascal }}]:
+        """Get entity by ID."""
+        if not id:
+            return Error.validation("ID is required")
+        
+        entity = await self.repository.get_by_id(id)
+        if not entity:
+            return Error.not_found(f"{{ TableNamePascal }} with ID {id} not found")
+        
+        return Result.success(entity)
+    
+    async def create(self, dto: Create{{ TableNamePascal }}Dto) -> Result[{{ TableNamePascal }}]:
+        """Create entity."""
+        entity = {{ TableNamePascal }}(
+            id=uuid4(),
+            name=dto.name,
+            description=dto.description,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        
+        created_entity = await self.repository.create(entity)
+        return Result.success(created_entity)
+```
+
+### 6. FastAPI Router Pattern (API Layer)
+```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+router = APIRouter(prefix="/{{ TableNameSnake }}s", tags=["{{ TableNamePascal }}"])
+
+@router.get("/{id}", response_model={{ TableNamePascal }}Response)
+async def get_{{ TableNameSnake }}(
+    id: UUID,
+    service: {{ TableNamePascal }}Service = Depends(get_{{ TableNameSnake }}_service_read)
+) -> {{ TableNamePascal }}Response:
+    """Get {{ TableNamePascal }} by ID."""
+    result = await service.get_by_id(id)
+    
+    if result.is_failure:
+        if result.error.type == "NOT_FOUND":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.error.message)
+        elif result.error.type == "VALIDATION":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.error.message)
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.error.message)
+    
+    return {{ TableNamePascal }}Response.from_entity(result.value)
+
+@router.post("/", response_model={{ TableNamePascal }}Response, status_code=status.HTTP_201_CREATED)
+async def create_{{ TableNameSnake }}(
+    request: Create{{ TableNamePascal }}Request,
+    service: {{ TableNamePascal }}Service = Depends(get_{{ TableNameSnake }}_service_write)
+) -> {{ TableNamePascal }}Response:
+    """Create {{ TableNamePascal }}."""
+    dto = request.to_dto()
+    result = await service.create(dto)
+    
+    if result.is_failure:
+        if result.error.type == "VALIDATION":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.error.message)
+        elif result.error.type == "CONFLICT":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=result.error.message)
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.error.message)
+    
+    return {{ TableNamePascal }}Response.from_entity(result.value)
+```
+
+### 7. Pydantic Schema Pattern (API Layer)
+```python
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+from pydantic import BaseModel, Field, EmailStr
+
+class {{ TableNamePascal }}Base(BaseModel):
+    """Base schema for {{ TableNamePascal }}."""
+    name: str = Field(..., description="Name")
+    description: Optional[str] = Field(None, description="Description")
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class Create{{ TableNamePascal }}Request({{ TableNamePascal }}Base):
+    """Request schema for creating {{ TableNamePascal }}."""
+    pass
+    
+    def to_dto(self) -> Create{{ TableNamePascal }}Dto:
+        """Convert to DTO."""
+        return Create{{ TableNamePascal }}Dto(
+            name=self.name,
+            description=self.description
+        )
+
+class {{ TableNamePascal }}Response({{ TableNamePascal }}Base):
+    """Response schema for {{ TableNamePascal }}."""
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    
+    @classmethod
+    def from_entity(cls, entity: {{ TableNamePascal }}) -> "{{ TableNamePascal }}Response":
+        """Create from domain entity."""
+        return cls(
+            id=entity.id,
+            name=entity.name,
+            description=entity.description,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at
+        )
+```
+
+## Result Pattern Usage (MANDATORY)
+All service methods MUST return Result[T] for proper error handling:
+
+```python
+# Success case
+return Result.success(entity)
+
+# Error cases
+return Error.not_found("Entity not found")
+return Error.validation("Invalid input")
+return Error.conflict("Entity already exists")
+return Error.internal("Database error")
+```
+
+## Transaction Handling
+- Use `get_async_session()` for read operations (no auto-commit)
+- Use `get_async_session_with_commit()` for write operations (auto-commit)
+- Repository dependencies handle session management automatically
+
+## Security Best Practices
+- ✅ NEVER expose password hashes in API responses
+- ✅ Accept plaintext passwords in requests, hash server-side
+- ✅ Use `EmailStr` for email validation
+- ✅ Sanitize string inputs (except passwords/tokens/secrets)
+- ✅ NEVER log sensitive data
+- ✅ Use timezone-aware UTC datetime everywhere
+- ✅ ALWAYS validate input parameters
+
+## Database Best Practices
+- Use timezone-aware UTC timestamps: `func.timezone('UTC', func.now())`
+- Import UUID properly: `from uuid import UUID as PyUUID` and `from sqlalchemy.dialects.postgresql import UUID as PG_UUID`
+- Use `PG_UUID(as_uuid=True)` for SQLAlchemy columns
+- Use Alembic migrations instead of `create_all()`
+
+## Logging and Monitoring
+- Use structured JSON logging in production
+- Include correlation IDs in logs
+- Log at appropriate levels (INFO for business events, ERROR for exceptions)
+- Never log sensitive information
+
+## Testing Requirements
+```python
+# Example unit test
+@pytest.mark.asyncio
+async def test_get_by_id_success():
+    # Arrange
+    entity_id = uuid4()
+    expected_entity = {{ TableNamePascal }}(id=entity_id, name="test")
+    mock_repository = Mock(spec=I{{ TableNamePascal }}Repository)
+    mock_repository.get_by_id.return_value = expected_entity
+    service = {{ TableNamePascal }}Service(mock_repository)
+    
+    # Act
+    result = await service.get_by_id(entity_id)
+    
+    # Assert
+    assert result.is_success
+    assert result.value == expected_entity
+    mock_repository.get_by_id.assert_called_once_with(entity_id)
+```
+
+## Dependencies and Dependency Injection
+```python
+# Read operations
+async def get_{{ TableNameSnake }}_service_read(
+    repository: I{{ TableNamePascal }}Repository = Depends(get_{{ TableNameSnake }}_repository_read)
+) -> {{ TableNamePascal }}Service:
+    return {{ TableNamePascal }}Service(repository)
+
+# Write operations  
+async def get_{{ TableNameSnake }}_service_write(
+    repository: I{{ TableNamePascal }}Repository = Depends(get_{{ TableNameSnake }}_repository_write)
+) -> {{ TableNamePascal }}Service:
+    return {{ TableNamePascal }}Service(repository)
+```
+
+## Common Mistakes to AVOID
+1. ❌ Mixing business logic in API layer
+2. ❌ Direct database calls from services
+3. ❌ Returning models instead of entities from repositories
+4. ❌ Using synchronous database operations
+5. ❌ Exposing sensitive data in API responses
+6. ❌ Missing input validation
+7. ❌ Not using Result pattern for error handling
+8. ❌ Hardcoding configuration values
+9. ❌ Creating circular dependencies
+
+## Code Quality Standards
+- Use type hints everywhere
+- Write docstrings for public methods
+- Keep functions small and focused
+- Use descriptive variable names
+- Follow SOLID principles
+- Maintain test coverage above 80%
+- Use async/await consistently
+
+## Performance Guidelines
+- Use connection pooling (handled by SQLAlchemy)
+- Implement proper pagination
+- Use database indexes for frequent queries
+- Consider caching for read-heavy operations
+- Use bulk operations for multiple records
+
+Remember: You are building production-ready code. Make it robust, secure, and maintainable.

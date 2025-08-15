@@ -1,0 +1,81 @@
+"""
+SQLAlchemy Model for {{ TableNamePascal }}
+
+This module defines the SQLAlchemy ORM model.
+"""
+from datetime import datetime, date, time, timedelta, timezone
+from decimal import Decimal
+from uuid import uuid4
+from uuid import UUID as PyUUID
+
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Float, Text, JSON, Date, Time, ARRAY, LargeBinary, Numeric, BigInteger, SmallInteger
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.sql import func
+
+from infrastructure.database.base import Base
+
+
+class {{ TableNamePascal }}Model(Base):
+    """SQLAlchemy model for {{ TableNamePascal }}."""
+    
+    __tablename__ = "{{ TableName }}"
+    
+    {% for col in Columns %}
+    {% if col.IsPrimaryKey %}
+    {{ col.NameSnake }} = Column({{ col.SqlAlchemyType }}, primary_key=True, default=uuid4)
+    {% elif col.NameSnake == 'created_at' %}
+    {{ col.NameSnake }} = Column({{ col.SqlAlchemyType }}, server_default=func.timezone('UTC', func.now()), nullable=False)
+    {% elif col.NameSnake == 'updated_at' %}
+    {{ col.NameSnake }} = Column({{ col.SqlAlchemyType }}, onupdate=func.timezone('UTC', func.now()), server_default=func.timezone('UTC', func.now()), nullable=False)
+    {% else %}
+    {{ col.NameSnake }} = Column({{ col.SqlAlchemyType }}, nullable={{ col.IsNullable }})
+    {% endif %}
+    {% endfor %}
+    {% set has_created_at = Columns|selectattr("NameSnake", "equalto", "created_at")|list|length > 0 %}
+    {% set has_updated_at = Columns|selectattr("NameSnake", "equalto", "updated_at")|list|length > 0 %}
+    {% if not has_created_at %}
+    created_at = Column(DateTime(timezone=True), server_default=func.timezone('UTC', func.now()), nullable=False)
+    {% endif %}
+    {% if not has_updated_at %}
+    updated_at = Column(DateTime(timezone=True), onupdate=func.timezone('UTC', func.now()), server_default=func.timezone('UTC', func.now()), nullable=False)
+    {% endif %}
+    
+    def to_entity(self):
+        """Convert SQLAlchemy model to domain entity."""
+        from core.entities{{ GroupNamespace }}.{{ TableNameSnake }} import {{ TableNamePascal }}
+        
+        return {{ TableNamePascal }}(
+            {% for col in Columns %}
+            {{ col.NameSnake }}=self.{{ col.NameSnake }},
+            {% endfor %}
+            {% if not has_created_at %}
+            created_at=self.created_at,
+            {% endif %}
+            {% if not has_updated_at %}
+            updated_at=self.updated_at
+            {% endif %}
+        )
+    
+    @classmethod
+    def from_entity(cls, entity):
+        """Create SQLAlchemy model from domain entity."""
+        return cls(
+            {% for col in Columns %}
+            {{ col.NameSnake }}=entity.{{ col.NameSnake }},
+            {% endfor %}
+            {% if not has_created_at %}
+            created_at=entity.created_at,
+            {% endif %}
+            {% if not has_updated_at %}
+            updated_at=entity.updated_at
+            {% endif %}
+        )
+    
+    def update_from_entity(self, entity):
+        """Update SQLAlchemy model from domain entity."""
+        {% for col in NonPrimaryColumns %}
+        {% if col.NameSnake not in ['created_at', 'updated_at'] %}
+        self.{{ col.NameSnake }} = entity.{{ col.NameSnake }}
+        {% endif %}
+        {% endfor %}
+        # updated_at will be handled by onupdate in the column definition

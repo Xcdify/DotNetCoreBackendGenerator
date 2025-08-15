@@ -1,0 +1,24 @@
+"""
+Pagination Utilities
+
+This module provides pagination utilities for the API.
+"""
+from typing import Generic, TypeVar, List
+from pydantic import BaseModel, Field
+
+
+T = TypeVar('T')
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Generic paginated response model."""
+    
+    items: List[T] = Field(..., description="List of items")
+    total: int = Field(..., ge=0, description="Total number of items")
+    page: int = Field(..., ge=1, description="Current page number")
+    size: int = Field(..., ge=1, description="Page size")
+    pages: int = Field(..., ge=0, description="Total number of pages")
+    
+    class Config:
+        """Pydantic configuration."""
+        from_attributes = True

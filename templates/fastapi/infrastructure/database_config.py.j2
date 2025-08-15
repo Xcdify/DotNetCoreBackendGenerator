@@ -1,0 +1,106 @@
+"""
+Database Configuration
+
+This module configures the database connection and session management.
+"""
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    AsyncEngine,
+    create_async_engine,
+    async_sessionmaker
+)
+
+from config.settings import settings
+
+
+# Create async engine
+engine: AsyncEngine = create_async_engine(
+    settings.DATABASE_URL,
+    pool_size=settings.DATABASE_POOL_SIZE,
+    max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+    pool_recycle=settings.DATABASE_POOL_RECYCLE,
+    echo=settings.DATABASE_ECHO,
+)
+
+# Create async session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+# Import the shared Base class
+from infrastructure.database.base import Base
+
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Get async database session for read operations.
+    Does not auto-commit. Use get_async_session_with_commit for writes.
+    
+    Yields:
+        The database session
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            # Don't auto-commit for read operations
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def get_async_session_with_commit() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Get async database session for write operations.
+    Auto-commits on success.
+    
+    Yields:
+        The database session
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+@asynccontextmanager
+async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Get async database session as context manager.
+    
+    Yields:
+        The database session
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
+async def init_database() -> None:
+    """Initialize the database connection pool."""
+    # Note: Table creation should be handled by Alembic migrations
+    # Run 'alembic upgrade head' before starting the application
+    pass
+
+
+async def close_database() -> None:
+    """Close the database connection."""
+    await engine.dispose()

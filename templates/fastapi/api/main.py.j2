@@ -1,0 +1,135 @@
+"""
+{{ SolutionName }} FastAPI Application
+
+This is the main application entry point.
+"""
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
+
+from config.settings import settings
+from infrastructure.database.session import init_database, close_database
+from api.middleware.correlation import CorrelationMiddleware
+from api.middleware.request_logging import RequestLoggingMiddleware
+from api.middleware.error_handler import ErrorHandlerMiddleware
+from common.logging import configure_logging
+
+{% for group, tables in GroupedTables.items() %}
+# Import {{ group }} routers
+{% for table in tables %}
+from api.v1.routers{{ '.'+group if group != 'General' else '' }}.{{ table.TableNameSnake }}_router import router as {{ table.TableNameSnake }}_router
+{% endfor %}
+{% endfor %}
+
+
+# Configure logging
+configure_logging(settings.LOG_LEVEL, settings.LOG_FORMAT)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
+    
+    Args:
+        app: The FastAPI application
+    """
+    # Startup
+    await init_database()
+    yield
+    # Shutdown
+    await close_database()
+
+
+# Create FastAPI application
+app = FastAPI(
+    title=settings.APP_NAME,
+    description=settings.APP_DESCRIPTION,
+    version=settings.APP_VERSION,
+    lifespan=lifespan,
+    docs_url="/docs",  # Always enable in development
+    redoc_url="/redoc",  # Always enable in development  
+    openapi_url="/openapi.json",  # Always enable in development
+)
+
+# Add middleware (order matters: last added runs first)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(ErrorHandlerMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(CorrelationMiddleware)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
+)
+
+# Trusted host middleware (optional, for production)
+if settings.ENVIRONMENT == "production":
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*.{{ SolutionName | lower }}.com", "{{ SolutionName | lower }}.com"]
+    )
+
+
+# Note: Exception handling is centralized in ErrorHandlerMiddleware
+# to avoid double-handling between middleware and FastAPI exception handlers
+
+
+# Health check endpoints
+@app.get("/health/live", tags=["Health"])
+async def liveness():
+    """Liveness probe endpoint."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["Health"])
+async def readiness():
+    """Readiness probe endpoint."""
+    # Add database and other service checks here
+    return {"status": "ready"}
+
+
+# Root endpoint
+@app.get("/", tags=["Root"])
+async def root():
+    """Root endpoint."""
+    return {
+        "name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "description": settings.APP_DESCRIPTION,
+        "environment": settings.ENVIRONMENT
+    }
+
+
+# Register routers
+{% for group, tables in GroupedTables.items() %}
+# {{ group }} routers
+{% for table in tables %}
+app.include_router(
+    {{ table.TableNameSnake }}_router,
+    prefix=f"{settings.API_PREFIX}{{ '/' + group.lower() if group != 'General' else '' }}",
+)
+{% endfor %}
+{% endfor %}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower()
+    )
