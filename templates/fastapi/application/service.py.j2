@@ -128,7 +128,9 @@ class {{ TableNamePascal }}Service:
             # Create entity from DTO
             entity = {{ TableNamePascal }}(
                 {% for col in NonPrimaryColumns %}
+                {% if col.NameSnake not in ['created_at', 'updated_at'] %}
                 {{ col.NameSnake }}=dto.{{ col.NameSnake }},
+                {% endif %}
                 {% endfor %}
             )
             
@@ -162,8 +164,10 @@ class {{ TableNamePascal }}Service:
             
             # Update entity from DTO
             {% for col in NonPrimaryColumns %}
+            {% if col.NameSnake not in ['created_at', 'updated_at'] %}
             if dto.{{ col.NameSnake }} is not None:
                 existing.{{ col.NameSnake }} = dto.{{ col.NameSnake }}
+            {% endif %}
             {% endfor %}
             existing.update_timestamp()
             
