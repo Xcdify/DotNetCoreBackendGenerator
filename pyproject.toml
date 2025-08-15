@@ -1,14 +1,22 @@
 [project]
-name = "netcore-generator"
-version = "0.1.0"
-description = "A utility to generate .NET Core 9 Clean Architecture applications from PostgreSQL schemas"
+name = "backend-generator"
+version = "1.0.0"
+description = "A utility to generate .NET Core and FastAPI Clean Architecture applications from PostgreSQL schemas"
 requires-python = ">=3.11"
 dependencies = [
+    # Core generator dependencies
     "streamlit>=1.32.0",
     "psycopg2-binary>=2.9.9",
     "jinja2>=3.1.3",
     "pydantic>=2.6.0",
     "python-dotenv>=1.0.0",
     "watchdog>=6.0.0",
+    
+    # Additional dependencies for FastAPI template validation
+    "pydantic-settings>=2.0.0",
+    "bleach>=6.1.0",
+    
+    # For Python type checking in generated templates
+    "typing-extensions>=4.0.0",
 ]
 

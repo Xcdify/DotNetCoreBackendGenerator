@@ -1,0 +1,226 @@
+"""
+{{ TableNamePascal }} Service
+
+This module implements the business logic for {{ TableNamePascal }}.
+"""
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from typing import Optional, List, Dict, Any, Tuple
+from uuid import UUID
+
+from core.entities{{ GroupNamespace }}.{{ TableNameSnake }} import {{ TableNamePascal }}
+from core.interfaces{{ GroupNamespace }}.{{ TableNameSnake }}_repository import I{{ TableNamePascal }}Repository
+from core.exceptions{{ GroupNamespace }}.{{ TableNameSnake }}_exceptions import (
+    {{ TableNamePascal }}NotFoundException,
+    {{ TableNamePascal }}ValidationException
+)
+from application.dto{{ GroupNamespace }}.{{ TableNameSnake }}_dto import (
+    Create{{ TableNamePascal }}Dto,
+    Update{{ TableNamePascal }}Dto
+)
+from common.result import Result, ResultBuilder, Error, ErrorType
+
+
+class {{ TableNamePascal }}Service:
+    """Service layer for {{ TableNamePascal }} business logic."""
+    
+    def __init__(self, repository: I{{ TableNamePascal }}Repository):
+        """
+        Initialize the service.
+        
+        Args:
+            repository: The {{ TableNamePascal }} repository
+        """
+        self._repository = repository
+    
+    async def get_by_id(self, id: {{ PrimaryKey.PythonType }}) -> Result[{{ TableNamePascal }}]:
+        """
+        Get a {{ TableNamePascal }} by its ID.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            
+        Returns:
+            Result containing the {{ TableNamePascal }} or an error
+        """
+        try:
+            entity = await self._repository.get_by_id(id)
+            if not entity:
+                return Error.not_found(f"{{ TableNamePascal }} with id {id} not found")
+            return ResultBuilder.success(entity)
+        except Exception as e:
+            return Error.internal(f"Failed to get {{ TableNamePascal }}: {str(e)}")
+    
+    async def get_all(self, skip: int = 0, limit: int = 100) -> Result[List[{{ TableNamePascal }}]]:
+        """
+        Get all {{ TableNamePascal }} entities.
+        
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            Result containing list of {{ TableNamePascal }} or an error
+        """
+        try:
+            if skip < 0:
+                return Error.validation("Skip must be non-negative")
+            if limit < 1 or limit > 1000:
+                return Error.validation("Limit must be between 1 and 1000")
+            
+            entities = await self._repository.get_all(skip, limit)
+            return ResultBuilder.success(entities)
+        except Exception as e:
+            return Error.internal(f"Failed to get {{ TableNamePascal }} list: {str(e)}")
+    
+    async def get_paginated(
+        self,
+        page: int,
+        size: int,
+        search_term: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        sort_by: Optional[str] = None,
+        sort_descending: bool = False
+    ) -> Result[Tuple[List[{{ TableNamePascal }}], int]]:
+        """
+        Get paginated {{ TableNamePascal }} entities.
+        
+        Args:
+            page: Page number (1-based)
+            size: Page size
+            search_term: Optional search term
+            filters: Optional filters
+            sort_by: Optional sort field
+            sort_descending: Sort order
+            
+        Returns:
+            Result containing tuple of (entities, total_count) or an error
+        """
+        try:
+            if page < 1:
+                return Error.validation("Page must be at least 1")
+            if size < 1 or size > 100:
+                return Error.validation("Size must be between 1 and 100")
+            
+            result = await self._repository.get_paginated(
+                page, size, search_term, filters, sort_by, sort_descending
+            )
+            return ResultBuilder.success(result)
+        except Exception as e:
+            return Error.internal(f"Failed to get paginated {{ TableNamePascal }}: {str(e)}")
+    
+    async def create(self, dto: Create{{ TableNamePascal }}Dto) -> Result[{{ TableNamePascal }}]:
+        """
+        Create a new {{ TableNamePascal }}.
+        
+        Args:
+            dto: The creation DTO
+            
+        Returns:
+            Result containing the created {{ TableNamePascal }} or an error
+        """
+        try:
+            # Validate business rules
+            validation_result = await self._validate_create(dto)
+            if validation_result.is_failure:
+                return validation_result
+            
+            # Create entity from DTO
+            entity = {{ TableNamePascal }}(
+                {% for col in NonPrimaryColumns %}
+                {% if col.NameSnake not in ['created_at', 'updated_at'] %}
+                {{ col.NameSnake }}=dto.{{ col.NameSnake }},
+                {% endif %}
+                {% endfor %}
+            )
+            
+            # Save to repository
+            created = await self._repository.create(entity)
+            return ResultBuilder.success(created)
+        except Exception as e:
+            return Error.internal(f"Failed to create {{ TableNamePascal }}: {str(e)}")
+    
+    async def update(self, id: {{ PrimaryKey.PythonType }}, dto: Update{{ TableNamePascal }}Dto) -> Result[{{ TableNamePascal }}]:
+        """
+        Update an existing {{ TableNamePascal }}.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            dto: The update DTO
+            
+        Returns:
+            Result containing the updated {{ TableNamePascal }} or an error
+        """
+        try:
+            # Check if entity exists
+            existing = await self._repository.get_by_id(id)
+            if not existing:
+                return Error.not_found(f"{{ TableNamePascal }} with id {id} not found")
+            
+            # Validate business rules
+            validation_result = await self._validate_update(id, dto)
+            if validation_result.is_failure:
+                return validation_result
+            
+            # Update entity from DTO
+            {% for col in NonPrimaryColumns %}
+            {% if col.NameSnake not in ['created_at', 'updated_at'] %}
+            if dto.{{ col.NameSnake }} is not None:
+                existing.{{ col.NameSnake }} = dto.{{ col.NameSnake }}
+            {% endif %}
+            {% endfor %}
+            existing.update_timestamp()
+            
+            # Save to repository
+            updated = await self._repository.update(id, existing)
+            if not updated:
+                return Error.internal("Failed to update {{ TableNamePascal }}")
+            
+            return ResultBuilder.success(updated)
+        except Exception as e:
+            return Error.internal(f"Failed to update {{ TableNamePascal }}: {str(e)}")
+    
+    async def delete(self, id: {{ PrimaryKey.PythonType }}) -> Result[bool]:
+        """
+        Delete a {{ TableNamePascal }}.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            
+        Returns:
+            Result containing success status or an error
+        """
+        try:
+            # Check if entity exists
+            exists = await self._repository.exists(id)
+            if not exists:
+                return Error.not_found(f"{{ TableNamePascal }} with id {id} not found")
+            
+            # Validate deletion is allowed
+            validation_result = await self._validate_delete(id)
+            if validation_result.is_failure:
+                return validation_result
+            
+            # Delete from repository
+            deleted = await self._repository.delete(id)
+            if not deleted:
+                return Error.internal("Failed to delete {{ TableNamePascal }}")
+            
+            return ResultBuilder.success(True)
+        except Exception as e:
+            return Error.internal(f"Failed to delete {{ TableNamePascal }}: {str(e)}")
+    
+    async def _validate_create(self, dto: Create{{ TableNamePascal }}Dto) -> Result[bool]:
+        """Validate business rules for creation."""
+        # Add custom validation logic here
+        return ResultBuilder.success(True)
+    
+    async def _validate_update(self, id: {{ PrimaryKey.PythonType }}, dto: Update{{ TableNamePascal }}Dto) -> Result[bool]:
+        """Validate business rules for update."""
+        # Add custom validation logic here
+        return ResultBuilder.success(True)
+    
+    async def _validate_delete(self, id: {{ PrimaryKey.PythonType }}) -> Result[bool]:
+        """Validate business rules for deletion."""
+        # Add custom validation logic here
+        return ResultBuilder.success(True)

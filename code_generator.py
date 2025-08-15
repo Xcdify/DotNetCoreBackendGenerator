@@ -2,6 +2,7 @@ from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Callable
 from utils import pascal_case, snake_case, camel_case, map_postgres_to_csharp, get_primary_key_type, normalize_connection_string
+from fastapi_generator import FastAPICodeGenerator
 
 class DotNetCodeGenerator:
     def __init__(self):
@@ -177,57 +178,57 @@ class DotNetCodeGenerator:
         }
     
     def generate_entity(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('core/entity.cs.j2')
+        template = self.env.get_template('dotnetapi/core/entity.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_repository_interface(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('infrastructure/repository_interface.cs.j2')
+        template = self.env.get_template('dotnetapi/infrastructure/repository_interface.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_repository_implementation(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('infrastructure/repository_dapper.cs.j2')
+        template = self.env.get_template('dotnetapi/infrastructure/repository_dapper.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_controller(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('application/controller.cs.j2')
+        template = self.env.get_template('dotnetapi/application/controller.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_application_service_interface(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('application/application_service_interface.cs.j2')
+        template = self.env.get_template('dotnetapi/application/application_service_interface.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_application_service(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('application/application_service.cs.j2')
+        template = self.env.get_template('dotnetapi/application/application_service.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
 
     def generate_mapping_profile(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('application/mapping_profile.cs.j2')
+        template = self.env.get_template('dotnetapi/application/mapping_profile.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_create_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('dtos/create_dto.cs.j2')
+        template = self.env.get_template('dotnetapi/dtos/create_dto.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_update_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('dtos/update_dto.cs.j2')
+        template = self.env.get_template('dotnetapi/dtos/update_dto.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_dto_validator(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('dtos/dto_validator.cs.j2')
+        template = self.env.get_template('dotnetapi/dtos/dto_validator.cs.j2')
         data = self._prepare_table_data(table, group)
         return template.render(**data)
     
     def generate_pagination_dto(self, table: Dict[str, Any], group: str = 'General') -> str:
-        template = self.env.get_template('dtos/pagination_request.cs.j2')
+        template = self.env.get_template('dotnetapi/dtos/pagination_request.cs.j2')
         data = self._prepare_table_data(table, group)
         # Add DataType info for columns to enable smart filtering
         for col in data['Columns']:
@@ -237,7 +238,7 @@ class DotNetCodeGenerator:
         return template.render(**data)
     
     def _generate_program(self, schema: Dict[str, Any], solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('application/program.cs.j2')
+        template = self.env.get_template('dotnetapi/application/program.cs.j2')
         tables = []
         for table in schema['tables']:
             tables.append({
@@ -246,7 +247,7 @@ class DotNetCodeGenerator:
         return template.render(Tables=tables, SolutionName=solution_name)
     
     def _generate_appsettings(self, connection_string: str = "", solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('configuration/appsettings.json.j2')
+        template = self.env.get_template('dotnetapi/configuration/appsettings.json.j2')
         normalized_conn_str = normalize_connection_string(connection_string)
         return template.render(connection_string=normalized_conn_str, SolutionName=solution_name)
     
@@ -261,35 +262,35 @@ class DotNetCodeGenerator:
 }"""
     
     def _generate_core_csproj(self) -> str:
-        template = self.env.get_template('project/core.csproj.j2')
+        template = self.env.get_template('dotnetapi/project/core.csproj.j2')
         return template.render()
     
     def _generate_application_csproj(self) -> str:
-        template = self.env.get_template('project/application.csproj.j2')
+        template = self.env.get_template('dotnetapi/project/application.csproj.j2')
         return template.render()
     
     def _generate_infrastructure_csproj(self) -> str:
-        template = self.env.get_template('project/infrastructure.csproj.j2')
+        template = self.env.get_template('dotnetapi/project/infrastructure.csproj.j2')
         return template.render()
     
     def _generate_webapi_csproj(self) -> str:
-        template = self.env.get_template('project/webapi.csproj.j2')
+        template = self.env.get_template('dotnetapi/project/webapi.csproj.j2')
         return template.render()
     
     def _generate_solution(self, solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('project/solution.sln.j2')
+        template = self.env.get_template('dotnetapi/project/solution.sln.j2')
         return template.render(SolutionName=solution_name)
     
     def _generate_application_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
-        template = self.env.get_template('application/application_di_extensions.cs.j2')
+        template = self.env.get_template('dotnetapi/application/application_di_extensions.cs.j2')
         return template.render(Groups=grouped_tables)
     
     def _generate_infrastructure_di_extensions(self, grouped_tables: Dict[str, List[Dict]]) -> str:
-        template = self.env.get_template('infrastructure/infrastructure_di_extensions.cs.j2')
+        template = self.env.get_template('dotnetapi/infrastructure/infrastructure_di_extensions.cs.j2')
         return template.render(Groups=grouped_tables)
 
     def _generate_sql_query_builder(self) -> str:
-        template = self.env.get_template('infrastructure/sql_query_builder.cs.j2')
+        template = self.env.get_template('dotnetapi/infrastructure/sql_query_builder.cs.j2')
         return template.render()
     
     def _generate_gitignore(self) -> str:
@@ -469,27 +470,27 @@ Run tests with: `dotnet test`
 """
 
     def _generate_result_class(self) -> str:
-        template = self.env.get_template('core/result.cs.j2')
+        template = self.env.get_template('dotnetapi/core/result.cs.j2')
         return template.render()
     
     def _generate_error_class(self) -> str:
-        template = self.env.get_template('core/error.cs.j2')
+        template = self.env.get_template('dotnetapi/core/error.cs.j2')
         return template.render()
 
     def _generate_serilog_configuration(self, solution_name: str = "GeneratedApp") -> str:
-        template = self.env.get_template('configuration/serilog_configuration.cs.j2')
+        template = self.env.get_template('dotnetapi/configuration/serilog_configuration.cs.j2')
         return template.render(SolutionName=solution_name)
     
     def _generate_correlation_middleware(self) -> str:
-        template = self.env.get_template('middleware/correlation_middleware.cs.j2')
+        template = self.env.get_template('dotnetapi/middleware/correlation_middleware.cs.j2')
         return template.render()
     
     def _generate_request_logging_middleware(self) -> str:
-        template = self.env.get_template('middleware/request_logging_middleware.cs.j2')
+        template = self.env.get_template('dotnetapi/middleware/request_logging_middleware.cs.j2')
         return template.render()
     
     def _generate_sensitive_data_examples(self) -> str:
-        template = self.env.get_template('configuration/sensitive_data_examples.cs.j2')
+        template = self.env.get_template('dotnetapi/configuration/sensitive_data_examples.cs.j2')
         return template.render()
     
     def _generate_paged_response_class(self) -> str:
@@ -520,10 +521,28 @@ namespace WebApi.DTOs.Common
     
     def _generate_cursorrules(self, solution_name: str = "GeneratedApp") -> str:
         """Generate .cursorrules file for Cursor AI"""
-        template = self.env.get_template('ai_assistants/cursorrules.txt.j2')
+        template = self.env.get_template('dotnetapi/ai_assistants/cursorrules.txt.j2')
         return template.render(SolutionName=solution_name)
     
     def _generate_claude_md(self, solution_name: str = "GeneratedApp") -> str:
         """Generate CLAUDE.md file for Claude AI"""
-        template = self.env.get_template('ai_assistants/claude.md.j2')
+        template = self.env.get_template('dotnetapi/ai_assistants/claude.md.j2')
         return template.render(SolutionName=solution_name)
+
+
+def create_code_generator(framework: str):
+    """
+    Factory function to create appropriate code generator based on framework.
+    
+    Args:
+        framework: Either 'dotnet' or 'fastapi'
+        
+    Returns:
+        Code generator instance
+    """
+    if framework.lower() == 'fastapi':
+        return FastAPICodeGenerator()
+    elif framework.lower() == 'dotnet':
+        return DotNetCodeGenerator()
+    else:
+        raise ValueError(f"Unsupported framework: {framework}. Choose 'dotnet' or 'fastapi'.")

@@ -1,0 +1,72 @@
+"""
+Dependency Injection for {{ TableNamePascal }}
+
+This module defines the dependency injection configuration.
+"""
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from infrastructure.database.session import get_async_session, get_async_session_with_commit
+from infrastructure.database.repositories{{ GroupNamespace }}.{{ TableNameSnake }}_repository import {{ TableNamePascal }}Repository
+from application.services{{ GroupNamespace }}.{{ TableNameSnake }}_service import {{ TableNamePascal }}Service
+from core.interfaces{{ GroupNamespace }}.{{ TableNameSnake }}_repository import I{{ TableNamePascal }}Repository
+
+
+async def get_{{ TableNameSnake }}_repository_read(
+    session: AsyncSession = Depends(get_async_session)
+) -> I{{ TableNamePascal }}Repository:
+    """
+    Get {{ TableNamePascal }} repository instance for read operations.
+    
+    Args:
+        session: The database session (no auto-commit)
+        
+    Returns:
+        The repository instance
+    """
+    return {{ TableNamePascal }}Repository(session)
+
+
+async def get_{{ TableNameSnake }}_repository_write(
+    session: AsyncSession = Depends(get_async_session_with_commit)
+) -> I{{ TableNamePascal }}Repository:
+    """
+    Get {{ TableNamePascal }} repository instance for write operations.
+    
+    Args:
+        session: The database session (with auto-commit)
+        
+    Returns:
+        The repository instance
+    """
+    return {{ TableNamePascal }}Repository(session)
+
+
+async def get_{{ TableNameSnake }}_service_read(
+    repository: I{{ TableNamePascal }}Repository = Depends(get_{{ TableNameSnake }}_repository_read)
+) -> {{ TableNamePascal }}Service:
+    """
+    Get {{ TableNamePascal }} service instance for read operations.
+    
+    Args:
+        repository: The repository instance (read-only)
+        
+    Returns:
+        The service instance
+    """
+    return {{ TableNamePascal }}Service(repository)
+
+
+async def get_{{ TableNameSnake }}_service_write(
+    repository: I{{ TableNamePascal }}Repository = Depends(get_{{ TableNameSnake }}_repository_write)
+) -> {{ TableNamePascal }}Service:
+    """
+    Get {{ TableNamePascal }} service instance for write operations.
+    
+    Args:
+        repository: The repository instance (with auto-commit)
+        
+    Returns:
+        The service instance
+    """
+    return {{ TableNamePascal }}Service(repository)

@@ -1,0 +1,58 @@
+"""
+Correlation ID Middleware
+
+This middleware adds correlation IDs to requests for tracking.
+"""
+import uuid
+from contextvars import ContextVar
+from typing import Callable
+
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+
+# Context variable for correlation ID
+correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
+
+
+class CorrelationMiddleware(BaseHTTPMiddleware):
+    """Middleware to handle correlation IDs."""
+    
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        """
+        Process request and add correlation ID.
+        
+        Args:
+            request: The incoming request
+            call_next: The next middleware/handler
+            
+        Returns:
+            The response with correlation ID header
+        """
+        # Get or generate correlation ID
+        request_correlation_id = request.headers.get("X-Correlation-ID")
+        if not request_correlation_id:
+            request_correlation_id = str(uuid.uuid4())
+        
+        # Set in context
+        correlation_id.set(request_correlation_id)
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Add correlation ID to response headers
+        response.headers["X-Correlation-ID"] = request_correlation_id
+        
+        return response
+
+
+def get_correlation_id() -> str:
+    """
+    Get the current correlation ID.
+    
+    Returns:
+        The correlation ID
+    """
+    return correlation_id.get()

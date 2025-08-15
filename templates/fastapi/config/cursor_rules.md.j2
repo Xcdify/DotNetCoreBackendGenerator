@@ -1,0 +1,413 @@
+# Cursor IDE Rules - FastAPI Clean Architecture
+
+## Project Context
+This is a FastAPI application using Clean Architecture patterns with:
+- **FastAPI**: Modern async web framework
+- **SQLAlchemy 2.0**: Async ORM with PostgreSQL
+- **Clean Architecture**: Domain-driven design
+- **Pydantic**: Data validation and serialization
+- **Python 3.11+**: Modern Python features
+
+## Architecture Overview
+```
+API Layer (FastAPI) → Application Layer → Core Layer ← Infrastructure Layer
+```
+
+### Layer Responsibilities:
+- **Core**: Domain entities, interfaces, business rules (no dependencies)
+- **Application**: Business logic, DTOs, services
+- **Infrastructure**: Database, external services (depends on Core)
+- **API**: HTTP endpoints, schemas, middleware (depends on Application + Infrastructure)
+
+## Code Generation Rules
+
+### 1. Entities (Core Layer)
+When creating domain entities:
+```python
+# Location: src/core/entities/{group}/
+from datetime import datetime
+from uuid import UUID
+
+class User:
+    def __init__(
+        self,
+        id: UUID,
+        email: str,
+        name: str,
+        created_at: datetime,
+        updated_at: datetime
+    ):
+        self.id = id
+        self.email = email
+        self.name = name
+        self.created_at = created_at
+        self.updated_at = updated_at
+```
+
+### 2. Repository Interfaces (Core Layer)
+```python
+# Location: src/core/interfaces/{group}/
+from abc import ABC, abstractmethod
+from typing import Optional
+from uuid import UUID
+
+class IUserRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, id: UUID) -> Optional[User]:
+        pass
+    
+    @abstractmethod
+    async def create(self, entity: User) -> User:
+        pass
+```
+
+### 3. SQLAlchemy Models (Infrastructure Layer)
+```python
+# Location: src/infrastructure/database/models/{group}/
+from uuid import uuid4
+from uuid import UUID as PyUUID
+from sqlalchemy import Column, String, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.sql import func
+from infrastructure.database.base import Base
+
+class UserModel(Base):
+    __tablename__ = "users"
+    
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    email = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.timezone('UTC', func.now()))
+    updated_at = Column(DateTime(timezone=True), onupdate=func.timezone('UTC', func.now()))
+```
+
+### 4. Repository Implementations (Infrastructure Layer)
+```python
+# Location: src/infrastructure/database/repositories/{group}/
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+class UserRepository(IUserRepository):
+    def __init__(self, session: AsyncSession):
+        self.session = session
+    
+    async def get_by_id(self, id: UUID) -> Optional[User]:
+        result = await self.session.execute(
+            select(UserModel).where(UserModel.id == id)
+        )
+        model = result.scalar_one_or_none()
+        return model.to_entity() if model else None
+```
+
+### 5. Application Services
+```python
+# Location: src/application/services/{group}/
+from common.result import Result, Error
+
+class UserService:
+    def __init__(self, repository: IUserRepository):
+        self.repository = repository
+    
+    async def get_by_id(self, id: UUID) -> Result[User]:
+        if not id:
+            return Error.validation("ID is required")
+        
+        user = await self.repository.get_by_id(id)
+        if not user:
+            return Error.not_found("User not found")
+        
+        return Result.success(user)
+```
+
+### 6. FastAPI Routers
+```python
+# Location: src/api/v1/routers/{group}/
+from fastapi import APIRouter, Depends, HTTPException, status
+
+router = APIRouter(prefix="/users", tags=["Users"])
+
+@router.get("/{id}", response_model=UserResponse)
+async def get_user(
+    id: UUID,
+    service: UserService = Depends(get_user_service_read)
+) -> UserResponse:
+    result = await service.get_by_id(id)
+    
+    if result.is_failure:
+        if result.error.type == "NOT_FOUND":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        # ... handle other errors
+    
+    return UserResponse.from_entity(result.value)
+```
+
+### 7. Pydantic Schemas
+```python
+# Location: src/api/schemas/{group}/
+from pydantic import BaseModel, EmailStr, Field
+
+class CreateUserRequest(BaseModel):
+    email: EmailStr = Field(..., description="User email")
+    name: str = Field(..., min_length=1, description="User name")
+    
+    def to_dto(self) -> CreateUserDto:
+        return CreateUserDto(email=self.email, name=self.name)
+
+class UserResponse(BaseModel):
+    id: UUID
+    email: str
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    
+    @classmethod
+    def from_entity(cls, entity: User) -> "UserResponse":
+        return cls(**entity.__dict__)
+```
+
+## Dependency Injection Patterns
+
+### Read vs Write Dependencies
+```python
+# Location: src/api/v1/dependencies/{group}/
+
+# Read operations (no auto-commit)
+async def get_user_repository_read(
+    session: AsyncSession = Depends(get_async_session)
+) -> IUserRepository:
+    return UserRepository(session)
+
+# Write operations (auto-commit)
+async def get_user_repository_write(
+    session: AsyncSession = Depends(get_async_session_with_commit)
+) -> IUserRepository:
+    return UserRepository(session)
+```
+
+## Error Handling Rules
+
+### Result Pattern (Mandatory)
+Always use Result pattern in services:
+```python
+# Success
+return Result.success(data)
+
+# Errors
+return Error.not_found("Entity not found")
+return Error.validation("Invalid input")
+return Error.conflict("Already exists")
+return Error.internal("System error")
+```
+
+### HTTP Error Mapping
+```python
+if result.is_failure:
+    error_map = {
+        "NOT_FOUND": (status.HTTP_404_NOT_FOUND, result.error.message),
+        "VALIDATION": (status.HTTP_400_BAD_REQUEST, result.error.message),
+        "CONFLICT": (status.HTTP_409_CONFLICT, result.error.message),
+    }
+    
+    status_code, detail = error_map.get(
+        result.error.type, 
+        (status.HTTP_500_INTERNAL_SERVER_ERROR, "Internal error")
+    )
+    raise HTTPException(status_code=status_code, detail=detail)
+```
+
+## Security Rules
+
+### Input Validation
+- Use `EmailStr` for email fields
+- Sanitize string inputs with bleach (except passwords/tokens)
+- Never accept password hashes from clients
+- Use `Field()` with validation constraints
+
+### Sensitive Data Handling
+```python
+# DON'T expose password hashes
+class UserResponse(BaseModel):
+    email: str
+    name: str
+    # password_hash: str  # ❌ NEVER include this
+
+# DO accept plaintext passwords
+class CreateUserRequest(BaseModel):
+    password: str = Field(..., min_length=8)
+    # password_hash: str  # ❌ Don't accept hashes
+```
+
+## Database Rules
+
+### UUID Handling
+```python
+# Imports
+from uuid import UUID as PyUUID, uuid4
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
+# SQLAlchemy column
+id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+# Type hints
+user_id: PyUUID
+```
+
+### Timestamps
+```python
+# Always use timezone-aware UTC
+created_at = Column(
+    DateTime(timezone=True), 
+    server_default=func.timezone('UTC', func.now())
+)
+updated_at = Column(
+    DateTime(timezone=True),
+    onupdate=func.timezone('UTC', func.now()),
+    server_default=func.timezone('UTC', func.now())
+)
+```
+
+## Testing Patterns
+
+### Unit Tests
+```python
+@pytest.mark.asyncio
+async def test_get_user_success():
+    # Arrange
+    user_id = uuid4()
+    expected_user = User(id=user_id, email="test@example.com", name="Test")
+    mock_repo = Mock(spec=IUserRepository)
+    mock_repo.get_by_id.return_value = expected_user
+    service = UserService(mock_repo)
+    
+    # Act
+    result = await service.get_by_id(user_id)
+    
+    # Assert
+    assert result.is_success
+    assert result.value == expected_user
+```
+
+### Integration Tests
+```python
+@pytest.mark.asyncio
+async def test_create_user_endpoint(client: AsyncClient):
+    # Arrange
+    request_data = {"email": "test@example.com", "name": "Test User"}
+    
+    # Act
+    response = await client.post("/api/v1/users/", json=request_data)
+    
+    # Assert
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == request_data["email"]
+```
+
+## File Organization
+
+### Imports Order
+```python
+# 1. Standard library
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+# 2. Third-party
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from sqlalchemy import Column
+
+# 3. Local imports (alphabetical)
+from api.schemas.user_schema import UserResponse
+from application.services.user_service import UserService
+from core.entities.user import User
+```
+
+### File Naming
+- Entities: `user.py` (singular)
+- Models: `user_model.py`
+- Repositories: `user_repository.py`
+- Services: `user_service.py`
+- Routers: `user_router.py`
+- Schemas: `user_schema.py`
+
+## Performance Guidelines
+
+### Async/Await
+- Always use async/await for database operations
+- Use `AsyncSession` for database sessions
+- Prefer `select()` over legacy query methods
+
+### Database Optimization
+```python
+# Good: Use select with specific columns
+await session.execute(select(User.id, User.email).where(User.active == True))
+
+# Good: Use proper pagination
+query = select(UserModel).offset(skip).limit(limit)
+
+# Good: Use indexes for frequent queries
+__table_args__ = (Index('idx_user_email', 'email'),)
+```
+
+## Code Quality
+
+### Type Hints
+- Always use type hints
+- Use `|` syntax for unions in Python 3.10+
+- Use `Optional[T]` for nullable fields
+
+### Documentation
+```python
+async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
+    """
+    Retrieve a user by their unique identifier.
+    
+    Args:
+        user_id: The unique identifier of the user
+        
+    Returns:
+        The user if found, None otherwise
+        
+    Raises:
+        DatabaseError: If database operation fails
+    """
+```
+
+## Configuration
+
+### Environment Variables
+```python
+# Use pydantic-settings
+class Settings(BaseSettings):
+    database_url: str = Field(..., env="DATABASE_URL")
+    secret_key: str = Field(..., env="SECRET_KEY") 
+    debug: bool = Field(default=False, env="DEBUG")
+    
+    class Config:
+        env_file = ".env"
+```
+
+## Common Patterns to Follow
+
+1. **Repository Pattern**: Always abstract database access
+2. **Dependency Injection**: Use FastAPI's dependency system
+3. **Result Pattern**: Handle errors explicitly
+4. **Clean Architecture**: Respect layer boundaries
+5. **Async First**: Use async/await throughout
+6. **Type Safety**: Leverage Python's type system
+7. **Security**: Validate inputs, sanitize outputs
+8. **Testing**: Write tests for all layers
+
+## Anti-patterns to Avoid
+
+❌ Direct database calls from API layer
+❌ Business logic in controllers
+❌ Exposing internal models in API
+❌ Synchronous database operations
+❌ Missing error handling
+❌ Hardcoded configuration
+❌ Circular dependencies
+❌ Untested code
+
+Follow these rules consistently to maintain code quality and architectural integrity.

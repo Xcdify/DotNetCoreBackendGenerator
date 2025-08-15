@@ -1,0 +1,122 @@
+"""
+{{ TableNamePascal }} Repository Interface
+
+This module defines the abstract repository interface for {{ TableNamePascal }}.
+"""
+from abc import ABC, abstractmethod
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from typing import Optional, List, Dict, Any, Tuple
+from uuid import UUID
+
+from core.entities{{ GroupNamespace }}.{{ TableNameSnake }} import {{ TableNamePascal }}
+
+
+class I{{ TableNamePascal }}Repository(ABC):
+    """Abstract repository interface for {{ TableNamePascal }}."""
+    
+    @abstractmethod
+    async def get_by_id(self, id: {{ PrimaryKey.PythonType }}) -> Optional[{{ TableNamePascal }}]:
+        """
+        Get a {{ TableNamePascal }} by its ID.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            
+        Returns:
+            The {{ TableNamePascal }} if found, None otherwise
+        """
+        pass
+    
+    @abstractmethod
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[{{ TableNamePascal }}]:
+        """
+        Get all {{ TableNamePascal }} entities with pagination.
+        
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of {{ TableNamePascal }} entities
+        """
+        pass
+    
+    @abstractmethod
+    async def get_paginated(
+        self, 
+        page: int, 
+        size: int,
+        search_term: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        sort_by: Optional[str] = None,
+        sort_descending: bool = False
+    ) -> Tuple[List[{{ TableNamePascal }}], int]:
+        """
+        Get paginated {{ TableNamePascal }} entities with filtering and sorting.
+        
+        Args:
+            page: Page number (1-based)
+            size: Page size
+            search_term: Optional search term
+            filters: Optional filters to apply
+            sort_by: Optional field to sort by
+            sort_descending: Sort in descending order
+            
+        Returns:
+            Tuple of (entities, total_count)
+        """
+        pass
+    
+    @abstractmethod
+    async def create(self, entity: {{ TableNamePascal }}) -> {{ TableNamePascal }}:
+        """
+        Create a new {{ TableNamePascal }}.
+        
+        Args:
+            entity: The {{ TableNamePascal }} to create
+            
+        Returns:
+            The created {{ TableNamePascal }}
+        """
+        pass
+    
+    @abstractmethod
+    async def update(self, id: {{ PrimaryKey.PythonType }}, entity: {{ TableNamePascal }}) -> Optional[{{ TableNamePascal }}]:
+        """
+        Update an existing {{ TableNamePascal }}.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            entity: The updated {{ TableNamePascal }} data
+            
+        Returns:
+            The updated {{ TableNamePascal }} if found, None otherwise
+        """
+        pass
+    
+    @abstractmethod
+    async def delete(self, id: {{ PrimaryKey.PythonType }}) -> bool:
+        """
+        Delete a {{ TableNamePascal }}.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        pass
+    
+    @abstractmethod
+    async def exists(self, id: {{ PrimaryKey.PythonType }}) -> bool:
+        """
+        Check if a {{ TableNamePascal }} exists.
+        
+        Args:
+            id: The {{ TableNamePascal }} ID
+            
+        Returns:
+            True if exists, False otherwise
+        """
+        pass

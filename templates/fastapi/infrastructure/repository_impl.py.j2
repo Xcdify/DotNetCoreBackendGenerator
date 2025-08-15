@@ -1,0 +1,156 @@
+"""
+{{ TableNamePascal }} Repository Implementation
+
+This module implements the repository interface using SQLAlchemy.
+"""
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from typing import Optional, List, Dict, Any, Tuple
+from uuid import UUID
+
+from sqlalchemy import select, func, or_, and_, desc, asc
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.entities{{ GroupNamespace }}.{{ TableNameSnake }} import {{ TableNamePascal }}
+from core.interfaces{{ GroupNamespace }}.{{ TableNameSnake }}_repository import I{{ TableNamePascal }}Repository
+from infrastructure.database.models{{ GroupNamespace }}.{{ TableNameSnake }}_model import {{ TableNamePascal }}Model
+
+
+class {{ TableNamePascal }}Repository(I{{ TableNamePascal }}Repository):
+    """SQLAlchemy implementation of {{ TableNamePascal }} repository."""
+    
+    def __init__(self, session: AsyncSession):
+        """
+        Initialize the repository.
+        
+        Args:
+            session: The SQLAlchemy async session
+        """
+        self._session = session
+    
+    async def get_by_id(self, id: {{ PrimaryKey.PythonType }}) -> Optional[{{ TableNamePascal }}]:
+        """Get a {{ TableNamePascal }} by its ID."""
+        stmt = select({{ TableNamePascal }}Model).where({{ TableNamePascal }}Model.{{ PrimaryKey.NameSnake }} == id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        
+        if model:
+            return model.to_entity()
+        return None
+    
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[{{ TableNamePascal }}]:
+        """Get all {{ TableNamePascal }} entities with pagination."""
+        stmt = select({{ TableNamePascal }}Model).offset(skip).limit(limit)
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+        
+        return [model.to_entity() for model in models]
+    
+    async def get_paginated(
+        self, 
+        page: int, 
+        size: int,
+        search_term: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        sort_by: Optional[str] = None,
+        sort_descending: bool = False
+    ) -> Tuple[List[{{ TableNamePascal }}], int]:
+        """Get paginated {{ TableNamePascal }} entities with filtering and sorting."""
+        # Base query
+        query = select({{ TableNamePascal }}Model)
+        count_query = select(func.count()).select_from({{ TableNamePascal }}Model)
+        
+        # Apply search filter
+        if search_term:
+            search_conditions = []
+            {% for col in Columns %}
+            {% if col.PythonType == 'str' or col.PythonType == 'Optional[str]' %}
+            search_conditions.append(
+                {{ TableNamePascal }}Model.{{ col.NameSnake }}.ilike(f"%{search_term}%")
+            )
+            {% endif %}
+            {% endfor %}
+            if search_conditions:
+                search_filter = or_(*search_conditions)
+                query = query.where(search_filter)
+                count_query = count_query.where(search_filter)
+        
+        # Apply filters
+        if filters:
+            filter_conditions = []
+            for field, value in filters.items():
+                if hasattr({{ TableNamePascal }}Model, field) and value is not None:
+                    filter_conditions.append(
+                        getattr({{ TableNamePascal }}Model, field) == value
+                    )
+            if filter_conditions:
+                filter_clause = and_(*filter_conditions)
+                query = query.where(filter_clause)
+                count_query = count_query.where(filter_clause)
+        
+        # Apply sorting
+        if sort_by and hasattr({{ TableNamePascal }}Model, sort_by):
+            order_column = getattr({{ TableNamePascal }}Model, sort_by)
+            if sort_descending:
+                query = query.order_by(desc(order_column))
+            else:
+                query = query.order_by(asc(order_column))
+        else:
+            query = query.order_by(desc({{ TableNamePascal }}Model.created_at))
+        
+        # Get total count
+        count_result = await self._session.execute(count_query)
+        total_count = count_result.scalar() or 0
+        
+        # Apply pagination
+        offset = (page - 1) * size
+        query = query.offset(offset).limit(size)
+        
+        # Execute query
+        result = await self._session.execute(query)
+        models = result.scalars().all()
+        
+        entities = [model.to_entity() for model in models]
+        return entities, total_count
+    
+    async def create(self, entity: {{ TableNamePascal }}) -> {{ TableNamePascal }}:
+        """Create a new {{ TableNamePascal }}."""
+        model = {{ TableNamePascal }}Model.from_entity(entity)
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return model.to_entity()
+    
+    async def update(self, id: {{ PrimaryKey.PythonType }}, entity: {{ TableNamePascal }}) -> Optional[{{ TableNamePascal }}]:
+        """Update an existing {{ TableNamePascal }}."""
+        stmt = select({{ TableNamePascal }}Model).where({{ TableNamePascal }}Model.{{ PrimaryKey.NameSnake }} == id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        
+        if model:
+            model.update_from_entity(entity)
+            await self._session.flush()
+            await self._session.refresh(model)
+            return model.to_entity()
+        return None
+    
+    async def delete(self, id: {{ PrimaryKey.PythonType }}) -> bool:
+        """Delete a {{ TableNamePascal }}."""
+        stmt = select({{ TableNamePascal }}Model).where({{ TableNamePascal }}Model.{{ PrimaryKey.NameSnake }} == id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        
+        if model:
+            await self._session.delete(model)
+            await self._session.flush()
+            return True
+        return False
+    
+    async def exists(self, id: {{ PrimaryKey.PythonType }}) -> bool:
+        """Check if a {{ TableNamePascal }} exists."""
+        stmt = select(func.count()).select_from({{ TableNamePascal }}Model).where(
+            {{ TableNamePascal }}Model.{{ PrimaryKey.NameSnake }} == id
+        )
+        result = await self._session.execute(stmt)
+        count = result.scalar() or 0
+        return count > 0
