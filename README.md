@@ -1,5 +1,11 @@
-# 🚀 .NET Core App Generator
+# 🚀 .Clean code/Hexagonal architecture Generator
 
+
+[![PyPI version](https://badge.fury.io/py/xarchgen.svg)](https://pypi.org/project/xarchgen/)
+[![Python Version](https://img.shields.io/pypi/pyversions/xarchgen)](https://pypi.org/project/xarchgen/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Generate Clean Architecture backend applications (FastAPI/DotNet) from PostgreSQL database schemas.
 > **Transform your PostgreSQL database into a production-ready .NET Core 9 API in seconds!**
 
 A blazingly fast, AI-powered Python utility that auto-generates enterprise-grade .NET Core applications from your existing PostgreSQL schemas. Built with Streamlit for an intuitive UI and leveraging `uv` for lightning-fast dependency management.
