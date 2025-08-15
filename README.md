@@ -6,6 +6,11 @@ A blazingly fast, AI-powered Python utility that auto-generates enterprise-grade
 
 ## ✨ Why This Generator?
 
+### 1. **Dual Framework Support**
+- ✅ **Framework Selection UI**: Users can choose between .NET Core (C#) and FastAPI (Python)
+- ✅ **Factory Pattern**: `create_code_generator()` function creates appropriate generator
+- ✅ **Framework-Aware UI**: Different previews, download names, and instructions
+
 ### 🎯 **Save Weeks of Development Time**
 Stop writing boilerplate code! Convert your database schema into a fully functional API with:
 - Complete CRUD operations
@@ -128,6 +133,21 @@ YourAPI/
     └── PerformanceTests/             # Load & stress tests
 ```
 
+### .NET Core → FastAPI Equivalents
+
+| .NET Core Pattern | FastAPI Equivalent | Key Differences |
+|-------------------|-------------------|-----------------|
+| Clean Architecture | Hexagonal/Clean Architecture | More flexible, less rigid layer boundaries |
+| Dapper ORM | SQLAlchemy Async 2.0 | Full ORM with async support, more features |
+| Repository Pattern | Repository + Unit of Work | Combined with session management |
+| Service Layer | Service/Use Case Layer | Similar concept, different implementation |
+| Controllers | Routers/Endpoints | More decorator-based approach |
+| Dependency Injection | FastAPI Depends | Function-based vs constructor injection |
+| Result Pattern | Result/Either Pattern | Can use libraries like `returns` or custom |
+| Middleware | Middleware + Dependencies | More granular control per route |
+| AutoMapper | Pydantic Models | Built-in serialization/validation |
+| FluentValidation | Pydantic Validators | Integrated with models |
+
 ## Type Mapping
 
 | PostgreSQL Type | C# Type |
@@ -217,7 +237,7 @@ dotnet publish -c Release -o ./publish
 
 ## Customization
 
-### Modifying Templates
+### Modifying Templates - similar for dotnet and fastapi
 
 Templates are organized in the `templates/` directory by category. Edit these Jinja2 templates to customize generated code:
 
